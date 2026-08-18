@@ -1,0 +1,68 @@
+{
+  "_comment": "Template for ~/.claude/settings.json (Windows: %USERPROFILE%\\.claude\\settings.json). MERGE this into your existing file, do not blindly overwrite it. Replace ABSOLUTE_PATH_TO_HOME with your real home directory - hook commands do not expand ~ or $HOME. Delete the permissions block if you are not installing the four lean-context converter CLIs. Remove this _comment key before use.",
+
+  "enabledPlugins": {
+    "superpowers@claude-plugins-official": true,
+    "ponytail@ponytail": true,
+    "caveman@caveman": true,
+    "code-simplifier@claude-plugins-official": false,
+    "frontend-design@claude-plugins-official": false,
+    "skill-creator@claude-plugins-official": false,
+    "security-guidance@claude-plugins-official": false,
+    "code-review@claude-plugins-official": false,
+    "claude-md-management@claude-plugins-official": false,
+    "github@claude-plugins-official": false,
+    "feature-dev@claude-plugins-official": false
+  },
+
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": { "source": "github", "repo": "DietrichGebert/ponytail" }
+    },
+    "caveman": {
+      "source": { "source": "github", "repo": "JuliusBrussee/caveman" }
+    }
+  },
+
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"ABSOLUTE_PATH_TO_HOME/.claude/hooks/verification-activate.js\"",
+            "timeout": 20,
+            "statusMessage": "Loading verification-before-completion..."
+          },
+          {
+            "type": "command",
+            "command": "node \"ABSOLUTE_PATH_TO_HOME/.claude/hooks/lean-context-activate.js\"",
+            "timeout": 20,
+            "statusMessage": "Loading lean-context..."
+          }
+        ]
+      }
+    ]
+  },
+
+  "skillOverrides": {
+    "lean-context": "user-invocable-only"
+  },
+
+  "permissions": {
+    "allow": [
+      "Bash(trafilatura *)",
+      "PowerShell(trafilatura *)",
+      "Bash(markitdown *)",
+      "PowerShell(markitdown *)",
+      "Bash(repomix *)",
+      "PowerShell(repomix *)",
+      "Bash(duckdb *)",
+      "PowerShell(duckdb *)"
+    ]
+  },
+
+  "model": "opus",
+  "autoUpdatesChannel": "latest"
+}

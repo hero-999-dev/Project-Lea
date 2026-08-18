@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="en" data-active="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Code Setup Lab</title>
+<meta name="description" content="A tuned Claude Code CLI configuration and a four-round benchmark measuring what each plugin and hook costs — and what it buys.">
+<style>
+:root {
+  --bg: #fbfbfa;
+  --bg-raised: #ffffff;
+  --bg-sunken: #f2f2ef;
+  --text: #1f1f1d;
+  --text-dim: #5f5f58;
+  --text-faint: #8a8a80;
+  --border: #e2e2dc;
+  --border-strong: #cfcfc6;
+  --accent: #b4531f;
+  --accent-soft: #f6ece4;
+  --good: #2f6f43;
+  --bad: #a8341f;
+  --code-bg: #f4f4f0;
+  --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16161a;
+    --bg-raised: #1d1d22;
+    --bg-sunken: #111114;
+    --text: #e8e8e3;
+    --text-dim: #a5a59d;
+    --text-faint: #77776f;
+    --border: #2c2c33;
+    --border-strong: #3d3d45;
+    --accent: #e08b56;
+    --accent-soft: #2a201a;
+    --good: #6cc08a;
+    --bad: #e2705b;
+    --code-bg: #101014;
+  }
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 5rem; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ---- header ---- */
+header.top {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: 1rem;
+  padding: 0.75rem clamp(1rem, 4vw, 3rem);
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+header.top .mark {
+  font-weight: 650; letter-spacing: -0.01em; font-size: 0.95rem;
+  margin-right: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+header.top .mark span { color: var(--accent); }
+.langswitch { display: flex; border: 1px solid var(--border-strong); border-radius: 999px; overflow: hidden; flex: none; }
+.langswitch button {
+  font: inherit; font-size: 0.78rem; font-weight: 600; letter-spacing: 0.04em;
+  padding: 0.25rem 0.7rem; border: 0; background: transparent; color: var(--text-dim);
+  cursor: pointer;
+}
+.langswitch button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+@media (prefers-color-scheme: dark) { .langswitch button[aria-pressed="true"] { color: #16161a; } }
+header.top a.gh {
+  font-size: 0.8rem; color: var(--text-dim); text-decoration: none;
+  border: 1px solid var(--border-strong); border-radius: 999px; padding: 0.25rem 0.7rem;
+  white-space: nowrap; flex: none;
+}
+header.top a.gh:hover { color: var(--text); border-color: var(--text-faint); }
+
+/* ---- layout ---- */
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 3rem); }
+.cols { display: grid; grid-template-columns: 1fr; gap: 3rem; align-items: start; }
+@media (min-width: 1020px) { .cols { grid-template-columns: 15rem 1fr; } }
+nav.toc { display: none; }
+@media (min-width: 1020px) {
+  nav.toc {
+    display: block; position: sticky; top: 4.5rem;
+    max-height: calc(100vh - 6rem); overflow-y: auto;
+    font-size: 0.85rem; border-inline-start: 1px solid var(--border); padding-inline-start: 1rem;
+  }
+  nav.toc strong { display: block; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.09em; color: var(--text-faint); margin: 1.2rem 0 0.4rem; }
+  nav.toc strong:first-child { margin-top: 0; }
+  nav.toc a { display: block; padding: 0.16rem 0; color: var(--text-dim); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent); }
+}
+main { min-width: 0; padding-bottom: 5rem; }
+
+/* ---- hero ---- */
+.hero { padding: clamp(2.5rem, 7vw, 4.5rem) 0 2rem; }
+.hero h1 {
+  font-size: clamp(2rem, 5.5vw, 3.1rem); line-height: 1.08; letter-spacing: -0.028em;
+  margin: 0 0 0.9rem; font-weight: 680;
+}
+.hero .sub { font-size: clamp(1.02rem, 2.2vw, 1.18rem); color: var(--text-dim); max-width: 46rem; margin: 0; }
+.hero .meta { margin-top: 1.5rem; font-size: 0.85rem; color: var(--text-faint); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 2rem 0 0; }
+.stats div { background: var(--bg-raised); padding: 1rem 1.1rem; }
+.stats dt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); margin: 0 0 0.3rem; }
+.stats dd { margin: 0; font-size: 1.5rem; font-weight: 640; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.stats dd small { display: block; font-size: 0.78rem; font-weight: 400; letter-spacing: 0; color: var(--text-dim); margin-top: 0.15rem; }
+
+/* ---- typography ---- */
+h2 {
+  font-size: clamp(1.4rem, 3vw, 1.75rem); letter-spacing: -0.02em; font-weight: 660;
+  margin: 3.5rem 0 0.4rem; padding-top: 1.6rem; border-top: 1px solid var(--border);
+}
+h2:first-of-type { border-top: 0; padding-top: 0; }
+h3 { font-size: 1.1rem; font-weight: 640; letter-spacing: -0.012em; margin: 2.2rem 0 0.5rem; }
+h4 { font-size: 0.94rem; font-weight: 640; margin: 1.6rem 0 0.4rem; color: var(--text-dim); }
+p, ul, ol { margin: 0.85rem 0; }
+ul, ol { padding-inline-start: 1.4rem; }
+li { margin: 0.35rem 0; }
+a { color: var(--accent); }
+.kicker { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.11em; color: var(--accent); font-weight: 700; margin: 0 0 0.35rem; }
+.lede { color: var(--text-dim); font-size: 1.02rem; }
+strong { font-weight: 640; }
+
+code { font-family: var(--mono); font-size: 0.86em; background: var(--code-bg); padding: 0.12em 0.36em; border-radius: 4px; border: 1px solid var(--border); }
+pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; overflow-x: auto; font-size: 0.84rem; line-height: 1.55; }
+pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+
+/* ---- tables ---- */
+.tw { overflow-x: auto; margin: 1.2rem 0; border: 1px solid var(--border); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.87rem; min-width: 30rem; }
+th, td { text-align: start; padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+thead th { background: var(--bg-sunken); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 660; white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: end; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.win { color: var(--good); font-weight: 660; }
+.lose { color: var(--bad); font-weight: 660; }
+
+/* ---- callouts ---- */
+.note { border-inline-start: 3px solid var(--accent); background: var(--accent-soft); padding: 0.9rem 1.1rem; border-radius: 0 8px 8px 0; margin: 1.4rem 0; }
+.note p:first-child { margin-top: 0; } .note p:last-child { margin-bottom: 0; }
+.note.plain { border-inline-start-color: var(--border-strong); background: var(--bg-sunken); }
+.finding { border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem 1.2rem; margin: 1rem 0; background: var(--bg-raised); }
+.finding h4 { margin-top: 0; color: var(--text); font-size: 1rem; }
+.finding p:last-child { margin-bottom: 0; }
+
+/* ---- cards ---- */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; margin: 1.4rem 0; }
+.card { border: 1px solid var(--border); border-radius: 10px; padding: 1.1rem 1.2rem; background: var(--bg-raised); }
+.card h4 { margin: 0 0 0.4rem; color: var(--text); font-size: 0.98rem; }
+.card p { margin: 0; font-size: 0.9rem; color: var(--text-dim); }
+
+.btns { display: flex; flex-wrap: wrap; gap: 0.7rem; margin: 1.8rem 0 0; }
+.btn { display: inline-block; padding: 0.55rem 1.1rem; border-radius: 8px; text-decoration: none; font-size: 0.9rem; font-weight: 600; border: 1px solid var(--border-strong); color: var(--text); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+@media (prefers-color-scheme: dark) { .btn.primary { color: #16161a; } }
+.btn:hover { border-color: var(--text-faint); }
+
+footer { border-top: 1px solid var(--border); margin-top: 4rem; padding: 2rem 0 4rem; font-size: 0.85rem; color: var(--text-faint); }
+footer a { color: var(--text-dim); }
+
+/* ---- language switching ---- */
+[data-lang] { display: none; }
+html[data-active="en"] [data-lang="en"],
+html[data-active="tr"] [data-lang="tr"] { display: revert; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="mark">Claude Code <span>Setup Lab</span></div>
+  <div class="langswitch" role="group" aria-label="Language">
+    <button type="button" data-set="en" aria-pressed="true">EN</button>
+    <button type="button" data-set="tr" aria-pressed="false">TR</button>
+  </div>
+  <a class="gh" href="https://github.com/hero-999-dev/claude-code-setup-lab">GitHub</a>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <div data-lang="en">
+    <strong>Report</strong>
+    <a href="#verdict">The verdict</a>
+    <a href="#configs">The five configs</a>
+    <strong>Benchmarks</strong>
+    <a href="#r1">1 · Prose, no tools</a>
+    <a href="#r2">2 · Easy bug fix</a>
+    <a href="#r3">3 · Hard bug fix</a>
+    <a href="#r4">4 · Website build</a>
+    <a href="#method">Method notes</a>
+    <strong>Setup</strong>
+    <a href="#cost">The token audit</a>
+    <a href="#gotchas">Gotchas</a>
+    <a href="#plugins">Plugin roster</a>
+    <a href="#install">Install</a>
+  </div>
+  <div data-lang="tr">
+    <strong>Rapor</strong>
+    <a href="#verdict">Hüküm</a>
+    <a href="#configs">Beş config</a>
+    <strong>Benchmark</strong>
+    <a href="#r1">1 · Metin, tool yok</a>
+    <a href="#r2">2 · Kolay bug fix</a>
+    <a href="#r3">3 · Zor bug fix</a>
+    <a href="#r4">4 · Website kurma</a>
+    <a href="#method">Yöntem notları</a>
+    <strong>Kurulum</strong>
+    <a href="#cost">Token denetimi</a>
+    <a href="#gotchas">Tuzaklar</a>
+    <a href="#plugins">Plugin listesi</a>
+    <a href="#install">Kurulum</a>
+  </div>
+</nav>
+
+<main>
+
+<!-- ============ HERO ============ -->
+<section class="hero">
+  <div data-lang="en">
+    <p class="kicker">Measured report</p>
+    <h1>What a stacked Claude Code config actually costs</h1>
+    <p class="sub">Eleven enabled plugins cut to three, then four benchmark rounds — ~$13 of API spend — to check whether the survivors were worth their token cost. They are, for one kind of work, and actively harmful for another.</p>
+    <p class="meta">4 rounds · 80 graded runs · 5 configurations · 1 model (Sonnet)</p>
+    <dl class="stats">
+      <div><dt>Prose work</dt><dd class="win">−36%</dd><dd><small>everything on, vs a bare config</small></dd></div>
+      <div><dt>Easy tool work</dt><dd class="lose">+97%</dd><dd><small>same cost premium, identical results</small></dd></div>
+      <div><dt>Hard bug fix</dt><dd><span class="win">3/5</span> vs <span class="lose">0/5</span></dd><dd><small>superpowers vs the terse modes</small></dd></div>
+      <div><dt>Startup saving</dt><dd>1,334</dd><dd><small>tokens per session, after the cut</small></dd></div>
+    </dl>
+    <div class="btns">
+      <a class="btn primary" href="https://github.com/hero-999-dev/claude-code-setup-lab/blob/main/INSTALL.md">Install guide</a>
+      <a class="btn" href="https://github.com/hero-999-dev/claude-code-setup-lab/releases/latest">Download full report (.zip)</a>
+      <a class="btn" href="https://github.com/hero-999-dev/claude-code-setup-lab">Repository</a>
+    </div>
+  </div>
+  <div data-lang="tr">
+    <p class="kicker">Ölçülmüş rapor</p>
+    <h1>Yığılmış bir Claude Code config'i gerçekte neye mal oluyor</h1>
+    <p class="sub">Etkin on bir plugin üçe indirildi, sonra hayatta kalanların token maliyetine değip değmediğini ölçmek için dört benchmark turu — ~13 dolar API harcaması. Bir iş türü için değiyor, bir diğeri için açıkça zarar veriyor.</p>
+    <p class="meta">4 tur · 80 notlandırılmış koşu · 5 yapılandırma · 1 model (Sonnet)</p>
+    <dl class="stats">
+      <div><dt>Metin işi</dt><dd class="win">−%36</dd><dd><small>her şey açık, boş config'e karşı</small></dd></div>
+      <div><dt>Kolay tool işi</dt><dd class="lose">+%97</dd><dd><small>aynı maliyet farkı, birebir aynı sonuç</small></dd></div>
+      <div><dt>Zor bug fix</dt><dd><span class="win">3/5</span> — <span class="lose">0/5</span></dd><dd><small>superpowers ile kısa metin modları</small></dd></div>
+      <div><dt>Başlangıç tasarrufu</dt><dd>1.334</dd><dd><small>kesintiden sonra oturum başına token</small></dd></div>
+    </dl>
+    <div class="btns">
+      <a class="btn primary" href="https://github.com/hero-999-dev/claude-code-setup-lab/blob/main/INSTALL.tr.md">Kurulum rehberi</a>
+      <a class="btn" href="https://github.com/hero-999-dev/claude-code-setup-lab/releases/latest">Tam raporu indir (.zip)</a>
+      <a class="btn" href="https://github.com/hero-999-dev/claude-code-setup-lab">Repo</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ VERDICT ============ -->
+<h2 id="verdict"><span data-lang="en">The verdict</span><span data-lang="tr">Hüküm</span></h2>
+
+<div data-lang="en">
+<p class="lede">There is no single configuration that is right for both prose and agentic coding. The default of "install everything" is the wrong one for coding.</p>
+<div class="tw"><table>
+  <thead><tr><th>Round</th><th class="num">n</th><th>Cheapest</th><th>Best quality</th><th>One-line verdict</th></tr></thead>
+  <tbody>
+    <tr><td>Prose, no tools</td><td class="num">3</td><td><code>full</code>, 36% under bare</td><td>not measured</td><td>caveman's output cut is the whole saving</td></tr>
+    <tr><td>Easy tool bug fix</td><td class="num">3</td><td><code>bare</code></td><td>tie, 15/15 correct</td><td><code>full</code> costs +97% for nothing</td></tr>
+    <tr><td>Hard tool bug fix</td><td class="num">5</td><td><code>bare</code></td><td><code>superpowers</code> 3/5, <code>modes</code> <span class="lose">0/5</span></td><td>the metric is the false-"done" rate</td></tr>
+    <tr><td>Website build</td><td class="num">3</td><td><code>bare</code> $0.127</td><td>tie, 14/15</td><td><code>modes</code> fastest and shortest</td></tr>
+  </tbody>
+</table></div>
+<div class="note">
+<p><strong>Practical shape.</strong> Keep <code>superpowers</code> and the verification hook on for coding work, drop <code>caveman</code> and <code>ponytail</code> there, and turn them on for prose-heavy sessions. The lever is <code>enabledPlugins</code> plus a restart — saying "stop caveman" mid-session does not recover the tokens, because the ruleset is already in context.</p>
+</div>
+</div>
+
+<div data-lang="tr">
+<p class="lede">Hem metin hem agentic kodlama için doğru olan tek bir yapılandırma yok. "Her şeyi kur" varsayılanı kodlama için yanlış olan.</p>
+<div class="tw"><table>
+  <thead><tr><th>Tur</th><th class="num">n</th><th>En ucuz</th><th>En iyi kalite</th><th>Tek cümlelik hüküm</th></tr></thead>
+  <tbody>
+    <tr><td>Metin, tool yok</td><td class="num">3</td><td><code>full</code>, bare'in %36 altında</td><td>ölçülmedi</td><td>tasarrufun tamamı caveman'in çıktı kesmesi</td></tr>
+    <tr><td>Kolay tool bug fix</td><td class="num">3</td><td><code>bare</code></td><td>berabere, 15/15 doğru</td><td><code>full</code> hiçbir şey için +%97</td></tr>
+    <tr><td>Zor tool bug fix</td><td class="num">5</td><td><code>bare</code></td><td><code>superpowers</code> 3/5, <code>modes</code> <span class="lose">0/5</span></td><td>metrik: yanlış "bitti" oranı</td></tr>
+    <tr><td>Website kurma</td><td class="num">3</td><td><code>bare</code> 0,127 $</td><td>berabere, 14/15</td><td><code>modes</code> en hızlı ve en kısa</td></tr>
+  </tbody>
+</table></div>
+<div class="note">
+<p><strong>Pratik biçim.</strong> Kodlama işi için <code>superpowers</code> ve verification hook'unu açık tut, orada <code>caveman</code> ile <code>ponytail</code>'i kapat, metin ağırlıklı oturumlarda aç. Kaldıraç <code>enabledPlugins</code> artı yeniden başlatma — oturum ortasında "stop caveman" demek token'ı geri getirmiyor, çünkü kural seti zaten bağlamda.</p>
+</div>
+</div>
+
+<!-- ============ CONFIGS ============ -->
+<h2 id="configs"><span data-lang="en">The five configurations</span><span data-lang="tr">Beş yapılandırma</span></h2>
+
+<div data-lang="en">
+<p>Every round compares the same five setups, isolated with <code>--setting-sources project</code> from a directory with no project settings, plus <code>--settings &lt;config&gt;</code>.</p>
+<div class="cards">
+  <div class="card"><h4><code>bare</code></h4><p>No plugins, no custom hooks.</p></div>
+  <div class="card"><h4><code>hooks</code></h4><p>Only the two hand-rolled <code>SessionStart</code> hooks: verification + lean-context.</p></div>
+  <div class="card"><h4><code>superpowers</code></h4><p>Only the <code>superpowers</code> plugin.</p></div>
+  <div class="card"><h4><code>modes</code></h4><p>Only <code>caveman</code> + <code>ponytail</code> — the terse/minimal output modes.</p></div>
+  <div class="card"><h4><code>full</code></h4><p>All of the above at once.</p></div>
+</div>
+</div>
+
+<div data-lang="tr">
+<p>Her tur aynı beş kurulumu karşılaştırıyor. İzolasyon: proje ayarı bulunmayan bir dizinden <code>--setting-sources project</code>, artı <code>--settings &lt;config&gt;</code>.</p>
+<div class="cards">
+  <div class="card"><h4><code>bare</code></h4><p>Plugin yok, özel hook yok.</p></div>
+  <div class="card"><h4><code>hooks</code></h4><p>Yalnızca elle yazılmış iki <code>SessionStart</code> hook'u: verification + lean-context.</p></div>
+  <div class="card"><h4><code>superpowers</code></h4><p>Yalnızca <code>superpowers</code> plugin'i.</p></div>
+  <div class="card"><h4><code>modes</code></h4><p>Yalnızca <code>caveman</code> + <code>ponytail</code> — kısa/minimal çıktı modları.</p></div>
+  <div class="card"><h4><code>full</code></h4><p>Yukarıdakilerin hepsi bir arada.</p></div>
+</div>
+</div>
+
+<!-- ============ ROUND 1 ============ -->
+<h2 id="r1"><span data-lang="en">Round 1 · Prose, no tools</span><span data-lang="tr">Tur 1 · Metin, tool yok</span></h2>
+
+<div data-lang="en">
+<p class="lede">5 configs × 3 samples × 3 turns, Sonnet, $2.56. Task: token bucket vs leaky bucket plus a Python implementation, then make it thread-safe, then handle a backward clock jump.</p>
+<p>Validity was checked before the numbers were read — all 15 samples produced code, covered the leaky bucket, used a lock, and reached <code>time.monotonic()</code>. Same job everywhere.</p>
+<div class="tw"><table>
+  <thead><tr><th>config</th><th class="num">input</th><th class="num">output</th><th class="num">USD</th><th class="num">answer chars</th></tr></thead>
+  <tbody>
+    <tr><td><code>bare</code></td><td class="num">97,580</td><td class="num">7,940</td><td class="num">0.175</td><td class="num">12,772</td></tr>
+    <tr><td><code>hooks</code></td><td class="num">101,362</td><td class="num">9,305</td><td class="num">0.227</td><td class="num">12,925</td></tr>
+    <tr><td><code>superpowers</code></td><td class="num">103,648</td><td class="num">9,727</td><td class="num">0.210</td><td class="num">13,027</td></tr>
+    <tr><td><code>modes</code></td><td class="num">115,231</td><td class="num">3,139</td><td class="num">0.143</td><td class="num">4,661</td></tr>
+    <tr><td><code>full</code></td><td class="num">123,904</td><td class="num">2,436</td><td class="num win">0.112</td><td class="num">3,990</td></tr>
+  </tbody>
+</table></div>
+<div class="finding">
+<h4>Optimising for prompt size was the wrong target</h4>
+<p><code>full</code> reads <strong>27% more input</strong> than <code>bare</code> and still costs <strong>36% less</strong>. Output fell 69%, output bills roughly 5× input, and most of that extra input is cache reads at a tenth of the input price.</p>
+</div>
+<p>Per component against <code>bare</code>: caveman+ponytail <span class="win">−18%</span>, and −36% once stacked with the rest. The hooks alone are <span class="lose">+30%</span> and superpowers alone <span class="lose">+20%</span> — both add fixed input and change output length not at all.</p>
+<p class="lede"><em>Caveats: n=3, one task, tool use deliberately suppressed to keep the configs comparable. This measures prose and code generation only.</em></p>
+</div>
+
+<div data-lang="tr">
+<p class="lede">5 config × 3 örnek × 3 tur, Sonnet, 2,56 dolar. Görev: token bucket ile leaky bucket karşılaştırması ve bir Python implementasyonu, sonra thread-safe hâle getir, sonra geriye giden saat sıçramasını ele al.</p>
+<p>Sayılar okunmadan önce geçerlilik kontrol edildi — 15 örneğin hepsi kod üretti, leaky bucket'ı kapsadı, lock kullandı ve <code>time.monotonic()</code>'e ulaştı. Her yerde aynı iş.</p>
+<div class="tw"><table>
+  <thead><tr><th>config</th><th class="num">input</th><th class="num">output</th><th class="num">USD</th><th class="num">cevap karakteri</th></tr></thead>
+  <tbody>
+    <tr><td><code>bare</code></td><td class="num">97.580</td><td class="num">7.940</td><td class="num">0,175</td><td class="num">12.772</td></tr>
+    <tr><td><code>hooks</code></td><td class="num">101.362</td><td class="num">9.305</td><td class="num">0,227</td><td class="num">12.925</td></tr>
+    <tr><td><code>superpowers</code></td><td class="num">103.648</td><td class="num">9.727</td><td class="num">0,210</td><td class="num">13.027</td></tr>
+    <tr><td><code>modes</code></td><td class="num">115.231</td><td class="num">3.139</td><td class="num">0,143</td><td class="num">4.661</td></tr>
+    <tr><td><code>full</code></td><td class="num">123.904</td><td class="num">2.436</td><td class="num win">0,112</td><td class="num">3.990</td></tr>
+  </tbody>
+</table></div>
+<div class="finding">
+<h4>Prompt boyutunu optimize etmek baştan yanlış hedefti</h4>
+<p><code>full</code>, <code>bare</code>'den <strong>%27 daha fazla input</strong> okuyor ve yine de <strong>%36 daha ucuza</strong> geliyor. Çıktı %69 düştü, output token'ları input'un yaklaşık 5 katı fiyatlanıyor, ve o fazladan input'un çoğu input fiyatının onda birine gelen cache okuması.</p>
+</div>
+<p>Bileşen bazında, <code>bare</code>'e karşı: caveman+ponytail <span class="win">−%18</span>, geri kalanla yığıldığında −%36. Hook'lar tek başına <span class="lose">+%30</span>, superpowers tek başına <span class="lose">+%20</span> — ikisi de sabit input ekliyor ve çıktı uzunluğunu hiç değiştirmiyor.</p>
+<p class="lede"><em>Kısıtlar: n=3, tek görev, config'leri karşılaştırılabilir tutmak için tool kullanımı bilerek bastırıldı. Bu tur yalnızca metin ve kod üretimini ölçüyor.</em></p>
+</div>
+
+<!-- ============ ROUND 2 ============ -->
+<h2 id="r2"><span data-lang="en">Round 2 · Easy agentic bug fix</span><span data-lang="tr">Tur 2 · Kolay agentic bug fix</span></h2>
+
+<div data-lang="en">
+<p class="lede">5 configs × 3 samples with real tool use. A token bucket whose <code>_refill</code> multiplies elapsed time by <code>capacity</code> instead of <code>refill_rate</code>. Graded objectively: the suite must exit 0 <em>and</em> the test file must stay byte-identical (SHA256).</p>
+<p>All 15 runs: <code>is_error=False</code>, <code>denials=0</code>, <code>test_exit=0</code>, <code>test_tampered=no</code>. Every config found the same one-line bug, so the costs compare like for like.</p>
+<div class="tw"><table>
+  <thead><tr><th>config</th><th class="num">input</th><th class="num">output</th><th class="num">USD</th><th class="num">turns</th><th class="num">sec</th></tr></thead>
+  <tbody>
+    <tr><td><code>bare</code></td><td class="num">156,507</td><td class="num">667</td><td class="num win">0.119</td><td class="num">6</td><td class="num">112</td></tr>
+    <tr><td><code>hooks</code></td><td class="num">163,419</td><td class="num">681</td><td class="num">0.128</td><td class="num">6</td><td class="num">115</td></tr>
+    <tr><td><code>modes</code></td><td class="num">192,351</td><td class="num">686</td><td class="num">0.170</td><td class="num">6</td><td class="num">118</td></tr>
+    <tr><td><code>superpowers</code></td><td class="num">257,590</td><td class="num">1,149</td><td class="num">0.192</td><td class="num">9</td><td class="num">134</td></tr>
+    <tr><td><code>full</code></td><td class="num">267,604</td><td class="num">796</td><td class="num lose">0.234</td><td class="num">8</td><td class="num">121</td></tr>
+  </tbody>
+</table></div>
+<p><strong>On tool work every component costs money and none of them saved any.</strong> Against <code>bare</code>: hooks +7%, modes +43%, superpowers +62%, full +97% — the exact opposite of round 1.</p>
+<p>The mechanism is output volume. A debugging task emits 600–1,200 output tokens in total, so caveman's compression has almost nothing to compress; it still shortens the final answer (90 chars vs 172) but that is rounding error against a 190k input. Meanwhile the fixed ruleset is re-read on all 6–8 turns: input per turn is 26k for <code>bare</code> and 33k for <code>full</code>. Superpowers additionally buys 3 extra turns from its skill-invocation mandate.</p>
+<div class="note"><p><strong>Rule of thumb.</strong> caveman/ponytail pay off in proportion to how much prose the model writes. Long-answer chat wins big; multi-turn agentic tool work loses. Claude Code's normal usage is the second kind.</p></div>
+</div>
+
+<div data-lang="tr">
+<p class="lede">Gerçek tool kullanımıyla 5 config × 3 örnek. <code>_refill</code> fonksiyonu geçen süreyi <code>refill_rate</code> yerine <code>capacity</code> ile çarpan bir token bucket. Nesnel notlandırma: suite 0 ile çıkmalı <em>ve</em> test dosyası bayt bayt aynı kalmalı (SHA256).</p>
+<p>15 koşunun hepsi: <code>is_error=False</code>, <code>denials=0</code>, <code>test_exit=0</code>, <code>test_tampered=no</code>. Her config aynı tek satırlık hatayı buldu, yani maliyetler birebir karşılaştırılabilir.</p>
+<div class="tw"><table>
+  <thead><tr><th>config</th><th class="num">input</th><th class="num">output</th><th class="num">USD</th><th class="num">tur</th><th class="num">sn</th></tr></thead>
+  <tbody>
+    <tr><td><code>bare</code></td><td class="num">156.507</td><td class="num">667</td><td class="num win">0,119</td><td class="num">6</td><td class="num">112</td></tr>
+    <tr><td><code>hooks</code></td><td class="num">163.419</td><td class="num">681</td><td class="num">0,128</td><td class="num">6</td><td class="num">115</td></tr>
+    <tr><td><code>modes</code></td><td class="num">192.351</td><td class="num">686</td><td class="num">0,170</td><td class="num">6</td><td class="num">118</td></tr>
+    <tr><td><code>superpowers</code></td><td class="num">257.590</td><td class="num">1.149</td><td class="num">0,192</td><td class="num">9</td><td class="num">134</td></tr>
+    <tr><td><code>full</code></td><td class="num">267.604</td><td class="num">796</td><td class="num lose">0,234</td><td class="num">8</td><td class="num">121</td></tr>
+  </tbody>
+</table></div>
+<p><strong>Tool işinde her bileşen para harcatıyor ve hiçbiri kazandırmıyor.</strong> <code>bare</code>'e karşı: hooks +%7, modes +%43, superpowers +%62, full +%97 — Tur 1'in tam tersi.</p>
+<p>Mekanizma çıktı hacmi. Bir debugging görevi toplam 600–1.200 output token üretiyor, yani caveman'in sıkıştıracak neredeyse hiçbir şeyi yok; nihai cevabı yine kısaltıyor (172'ye karşı 90 karakter) ama bu 190 binlik input'un yanında yuvarlama hatası. Bu sırada sabit kural seti 6–8 turun hepsinde yeniden okunuyor: tur başına input <code>bare</code> için 26 bin, <code>full</code> için 33 bin. Superpowers ayrıca skill çağırma zorunluluğu yüzünden 3 fazladan tur getiriyor.</p>
+<div class="note"><p><strong>Kural.</strong> caveman/ponytail, modelin ne kadar çok metin yazdığıyla orantılı kazandırır. Uzun cevaplı sohbet büyük kazanç; çok turlu agentic tool işi kayıp. Claude Code'un normal kullanımı ikincisi.</p></div>
+</div>
+
+<!-- ============ ROUND 3 ============ -->
+<h2 id="r3"><span data-lang="en">Round 3 · Hard bug fix — the round that answers the question</span><span data-lang="tr">Tur 3 · Zor bug fix — soruyu asıl cevaplayan tur</span></h2>
+
+<div data-lang="en">
+<p class="lede">The first round that separates <strong>quality</strong> rather than cost. 5 configs × 5 samples, 25 runs, $4.65.</p>
+<h3>The trap</h3>
+<p>A <code>SlidingWindow(limit, window)</code> rate limiter with an injected clock, whose docstring states the full contract — and breaks it in two places:</p>
+<ul>
+<li><strong>Bug A</strong> — <code>allow</code> appends the timestamp <em>before</em> checking, so refused calls occupy a slot and a blocked client pushes its own recovery away. The visible test suite catches this one.</li>
+<li><strong>Bug B</strong> — <code>_prune</code> expires with <code>events[0] &lt; cutoff</code> instead of <code>&lt;=</code>, so events live one instant too long. Documented in the docstring, untouched by any visible test — those deliberately use t=11 and t=10.5 rather than the exact boundary.</li>
+</ul>
+<p>Grading is a hidden suite copied in only after the agent exits; public API only, every assertion traceable to the docstring. The columns that matter are <code>visible_exit=0</code> with <code>hidden_exit=1</code>: the agent's own tests green, the fix still wrong.</p>
+<h3>Results</h3>
+<div class="tw"><table>
+  <thead><tr><th>config</th><th class="num">correct 8/8</th><th class="num">false "done"</th><th class="num">output</th><th class="num">USD</th><th class="num">USD per correct fix</th></tr></thead>
+  <tbody>
+    <tr><td><code>superpowers</code></td><td class="num win">3/5</td><td class="num">2</td><td class="num">2,408</td><td class="num">0.209</td><td class="num win">0.34</td></tr>
+    <tr><td><code>hooks</code></td><td class="num">2/5</td><td class="num">3</td><td class="num">1,004</td><td class="num">0.143</td><td class="num">0.38</td></tr>
+    <tr><td><code>full</code></td><td class="num">2/5</td><td class="num">3</td><td class="num">1,164</td><td class="num">0.244</td><td class="num">0.65</td></tr>
+    <tr><td><code>bare</code></td><td class="num">1/5</td><td class="num">4</td><td class="num">803</td><td class="num">0.134</td><td class="num">0.66</td></tr>
+    <tr><td><code>modes</code></td><td class="num lose">0/5</td><td class="num">5</td><td class="num">748</td><td class="num">0.173</td><td class="num lose">never</td></tr>
+  </tbody>
+</table></div>
+<p>Validity: 25/25 runs <code>is_error=False</code>, <code>denials=0</code>, <code>tampered=no</code>, <code>visible_exit=0</code>. Every single run left its own test suite green — so <strong>every failure here is a false completion claim</strong>, not a crash or a refusal.</p>
+<div class="finding">
+<h4>The separator is output volume, with no overlap at all</h4>
+<p>Every wrong fix came in under <strong>1,596</strong> output tokens; every correct one over <strong>1,924</strong> — medians 860 vs 2,690. A perfect split across 25 runs. The runs that wrote more are exactly the runs that checked the code against the docstring and caught bug B.</p>
+</div>
+<p>That makes caveman/ponytail's own mechanism the thing that costs correctness here. Their entire saving in round 1 came from cutting output 69%; on this task, suppressed output means the second contract violation is never examined. <code>modes</code> went 0/5 while costing 30% more than <code>bare</code> — it pays more and gets less. Stacking it with superpowers (<code>full</code>) dragged superpowers from 3/5 down to 2/5, at the highest cost of any config.</p>
+<p>The verification hook is the cheapest quality lever: 2/5 versus bare's 1/5 for +7% cost. Superpowers is the most effective one: 3× bare's correctness for +56%.</p>
+<p class="lede"><em>Caveats: n=5, one task, one model, and the quality signal rests on a single hidden defect. Treat the exact rates as indicative.</em></p>
+</div>
+
+<div data-lang="tr">
+<p class="lede">Maliyeti değil <strong>kaliteyi</strong> ayırt eden ilk tur. 5 config × 5 örnek, 25 koşu, 4,65 dolar.</p>
+<h3>Tuzak</h3>
+<p>Enjekte edilmiş bir saatle çalışan, docstring'i sözleşmenin tamamını yazan bir <code>SlidingWindow(limit, window)</code> rate limiter — ve bu sözleşmeyi iki yerde çiğniyor:</p>
+<ul>
+<li><strong>Bug A</strong> — <code>allow</code>, timestamp'i kontrolden <em>önce</em> ekliyor, yani reddedilen çağrılar da slot işgal ediyor ve engellenmiş bir istemci kendi toparlanmasını ileri itiyor. Görünür test suite'i bunu yakalıyor.</li>
+<li><strong>Bug B</strong> — <code>_prune</code>, <code>events[0] &lt;= cutoff</code> yerine <code>events[0] &lt; cutoff</code> ile süre doldurma yapıyor, yani olaylar bir an fazla yaşıyor. Docstring'de yazılı, hiçbir görünür test buna dokunmuyor — testler tam sınır yerine bilerek t=11 ve t=10,5 kullanıyor.</li>
+</ul>
+<p>Notlandırma, agent çıktıktan sonra kopyalanan gizli bir suite ile; yalnızca public API, her assert docstring'e izlenebilir. Önemli sütunlar: <code>visible_exit=0</code> ile <code>hidden_exit=1</code> — agent'ın kendi testleri yeşil, düzeltme yine de yanlış.</p>
+<h3>Sonuçlar</h3>
+<div class="tw"><table>
+  <thead><tr><th>config</th><th class="num">8/8 doğru</th><th class="num">yanlış "bitti"</th><th class="num">output</th><th class="num">USD</th><th class="num">doğru düzeltme başına USD</th></tr></thead>
+  <tbody>
+    <tr><td><code>superpowers</code></td><td class="num win">3/5</td><td class="num">2</td><td class="num">2.408</td><td class="num">0,209</td><td class="num win">0,34</td></tr>
+    <tr><td><code>hooks</code></td><td class="num">2/5</td><td class="num">3</td><td class="num">1.004</td><td class="num">0,143</td><td class="num">0,38</td></tr>
+    <tr><td><code>full</code></td><td class="num">2/5</td><td class="num">3</td><td class="num">1.164</td><td class="num">0,244</td><td class="num">0,65</td></tr>
+    <tr><td><code>bare</code></td><td class="num">1/5</td><td class="num">4</td><td class="num">803</td><td class="num">0,134</td><td class="num">0,66</td></tr>
+    <tr><td><code>modes</code></td><td class="num lose">0/5</td><td class="num">5</td><td class="num">748</td><td class="num">0,173</td><td class="num lose">hiç</td></tr>
+  </tbody>
+</table></div>
+<p>Geçerlilik: 25/25 koşuda <code>is_error=False</code>, <code>denials=0</code>, <code>tampered=no</code>, <code>visible_exit=0</code>. Tek tek her koşu kendi test suite'ini yeşil bıraktı — yani <strong>buradaki her başarısızlık bir yanlış tamamlama iddiası</strong>, çökme veya reddetme değil.</p>
+<div class="finding">
+<h4>Ayırt edici değişken çıktı hacmi, ve hiç örtüşme yok</h4>
+<p>Yanlış düzeltmelerin hepsi <strong>1.596</strong> output token'ın altında kaldı; doğruların hepsi <strong>1.924</strong>'ün üstünde — medyanlar 860'a karşı 2.690. 25 koşuda kusursuz bir ayrım. Daha fazla yazan koşular, kodu docstring'e karşı kontrol edip bug B'yi yakalayanların tam kendileri.</p>
+</div>
+<p>Bu da caveman/ponytail'in kendi mekanizmasını burada kaliteye mal olan şey hâline getiriyor. Tur 1'deki tasarrufun tamamı çıktıyı %69 kesmekten geliyordu; bu görevde bastırılmış çıktı, ikinci sözleşme ihlalinin hiç incelenmemesi demek. <code>modes</code>, <code>bare</code>'den %30 pahalıya gelirken 0/5 yaptı — daha çok ödeyip daha az alıyor. Superpowers ile yığıldığında (<code>full</code>) superpowers'ı 3/5'ten 2/5'e çekti, üstelik tüm config'lerin en yüksek maliyetiyle.</p>
+<p>Verification hook'u en ucuz kalite kaldıracı: +%7 maliyetle bare'in 1/5'ine karşı 2/5. Superpowers en etkili olanı: +%56 ile bare'in 3 katı doğruluk.</p>
+<p class="lede"><em>Kısıtlar: n=5, tek görev, tek model, ve kalite sinyali tek bir gizli kusura dayanıyor. Kesin oranları gösterge sayın.</em></p>
+</div>
+
+<!-- ============ ROUND 4 ============ -->
+<h2 id="r4"><span data-lang="en">Round 4 · Website build from an empty directory</span><span data-lang="tr">Tur 4 · Boş dizinden website kurma</span></h2>
+
+<div data-lang="en">
+<p class="lede">15 runs, $3.12. The first round that grades a <em>built artifact</em> by driving it: a pomodoro timer site that must open straight from <code>index.html</code>.</p>
+<p>Grading is real Chrome over CDP with no dependencies. Seven checks — loads, initial 25:00, counts down, pause holds, reset restores, auto-break (virtual time advanced 1.7M ms), and no network references. The grader was validated first against three reference sites: the correct one scores 7/7, a broken-pause variant fails only <code>pause_holds</code>, a no-break variant fails only <code>auto_break</code>.</p>
+<div class="tw"><table>
+  <thead><tr><th>config</th><th class="num">7/7</th><th class="num">USD</th><th class="num">turns</th><th class="num">lines</th><th class="num">sec</th></tr></thead>
+  <tbody>
+    <tr><td><code>modes</code></td><td class="num">3/3</td><td class="num">0.137</td><td class="num">2</td><td class="num win">71</td><td class="num win">14</td></tr>
+    <tr><td><code>full</code></td><td class="num">3/3</td><td class="num">0.199</td><td class="num">4</td><td class="num">78</td><td class="num">192</td></tr>
+    <tr><td><code>superpowers</code></td><td class="num lose">2/3</td><td class="num">0.161</td><td class="num">4</td><td class="num">160</td><td class="num">153</td></tr>
+    <tr><td><code>bare</code></td><td class="num">3/3</td><td class="num win">0.127</td><td class="num">3</td><td class="num">166</td><td class="num">148</td></tr>
+    <tr><td><code>hooks</code></td><td class="num">3/3</td><td class="num">0.197</td><td class="num">6</td><td class="num">172</td><td class="num">275</td></tr>
+  </tbody>
+</table></div>
+<p>14 of 15 sites scored 7/7, so <strong>function did not separate the configs</strong> — this task is easy. What separated them was volume, speed, and two failure modes:</p>
+<div class="finding">
+<h4>superpowers produced nothing in one run</h4>
+<p>It wrote a design, then ended with "Sound good to proceed?" — asking permission in a non-interactive run whose prompt said not to ask. Zero files, 1/7. The same failure killed the very first benchmark attempt, so it is reproducible and specific to superpowers on generation tasks, not a fluke.</p>
+</div>
+<div class="finding">
+<h4>The verification hook has no cost ceiling</h4>
+<p>One <code>hooks</code> run cost <strong>$0.86</strong> against a $0.15 median — 29 turns, 1.27M input. The hook drove it to build its own headless-Chrome harness and drive the page over CDP before claiming success. That is the hook working exactly as written; the tail risk is that "prove it" has no upper bound.</p>
+</div>
+<p><strong>The volume difference is mostly CSS, not logic.</strong> Comparing two samples directly: the JS is 47 vs 71 lines, the CSS is 6 vs 72. <code>bare</code> spent its extra output on a dark theme, a card, hover states, colour transitions, tabular numerals — and a viewport meta tag. The caveman/ponytail site is functionally identical and visually plain, and it omits <code>&lt;meta name="viewport"&gt;</code>, which is a real mobile defect rather than a matter of taste. The grader measures behaviour, not appearance, so "57% less code at identical quality" is only true for the behaviour it checks.</p>
+</div>
+
+<div data-lang="tr">
+<p class="lede">15 koşu, 3,12 dolar. <em>Kurulmuş bir ürünü</em> çalıştırarak notlandıran ilk tur: doğrudan <code>index.html</code>'den açılması gereken bir pomodoro zamanlayıcı sitesi.</p>
+<p>Notlandırma, bağımlılıksız biçimde CDP üzerinden gerçek Chrome ile. Yedi kontrol — açılıyor, başlangıç 25:00, geri sayıyor, duraklatma tutuyor, sıfırlama geri getiriyor, otomatik mola (sanal zaman 1,7 milyon ms ileri alınıyor) ve ağ referansı yok. Notlandırıcı önce üç referans siteye karşı doğrulandı: doğru olan 7/7 alıyor, duraklatması bozuk varyant yalnızca <code>pause_holds</code>'ta, molası olmayan varyant yalnızca <code>auto_break</code>'te kalıyor.</p>
+<div class="tw"><table>
+  <thead><tr><th>config</th><th class="num">7/7</th><th class="num">USD</th><th class="num">tur</th><th class="num">satır</th><th class="num">sn</th></tr></thead>
+  <tbody>
+    <tr><td><code>modes</code></td><td class="num">3/3</td><td class="num">0,137</td><td class="num">2</td><td class="num win">71</td><td class="num win">14</td></tr>
+    <tr><td><code>full</code></td><td class="num">3/3</td><td class="num">0,199</td><td class="num">4</td><td class="num">78</td><td class="num">192</td></tr>
+    <tr><td><code>superpowers</code></td><td class="num lose">2/3</td><td class="num">0,161</td><td class="num">4</td><td class="num">160</td><td class="num">153</td></tr>
+    <tr><td><code>bare</code></td><td class="num">3/3</td><td class="num win">0,127</td><td class="num">3</td><td class="num">166</td><td class="num">148</td></tr>
+    <tr><td><code>hooks</code></td><td class="num">3/3</td><td class="num">0,197</td><td class="num">6</td><td class="num">172</td><td class="num">275</td></tr>
+  </tbody>
+</table></div>
+<p>15 sitenin 14'ü 7/7 aldı, yani <strong>işlev config'leri ayırmadı</strong> — bu görev kolay. Ayıran şey hacim, hız ve iki başarısızlık biçimi oldu:</p>
+<div class="finding">
+<h4>superpowers bir koşuda hiçbir şey üretmedi</h4>
+<p>Bir tasarım yazdı, sonra "Sound good to proceed?" diye bitirdi — promptu soru sormayı yasaklayan, etkileşimsiz bir koşuda izin istedi. Sıfır dosya, 1/7. Aynı başarısızlık en ilk benchmark denemesini de öldürmüştü, yani tekrarlanabilir ve üretim görevlerinde superpowers'a özgü, tesadüf değil.</p>
+</div>
+<div class="finding">
+<h4>Verification hook'unun maliyet tavanı yok</h4>
+<p>Bir <code>hooks</code> koşusu, 0,15 dolarlık medyana karşı <strong>0,86 dolar</strong> tuttu — 29 tur, 1,27 milyon input. Hook onu, başarı iddiasında bulunmadan önce kendi headless-Chrome düzeneğini kurup sayfayı CDP üzerinden sürmeye itti. Bu, hook'un tam olarak yazıldığı gibi çalışması; kuyruk riski "kanıtla" talimatının üst sınırının olmaması.</p>
+</div>
+<p><strong>Hacim farkı çoğunlukla CSS, mantık değil.</strong> İki örneği doğrudan karşılaştırınca: JS 47'ye karşı 71 satır, CSS 6'ya karşı 72. <code>bare</code> fazladan çıktısını koyu temaya, bir karta, hover durumlarına, renk geçişlerine, tabular rakamlara — ve bir viewport meta etiketine harcadı. caveman/ponytail sitesi işlevsel olarak birebir aynı ve görsel olarak sade, ve <code>&lt;meta name="viewport"&gt;</code> etiketini atlıyor; bu zevk meselesi değil, gerçek bir mobil kusuru. Notlandırıcı görünümü değil davranışı ölçüyor, yani "aynı kalitede %57 daha az kod" ifadesi yalnızca ölçtüğü davranış için doğru.</p>
+</div>
+
+<!-- ============ METHOD ============ -->
+<h2 id="method"><span data-lang="en">Method notes worth reusing</span><span data-lang="tr">Tekrar kullanmaya değer yöntem notları</span></h2>
+
+<div data-lang="en">
+<ul>
+<li><strong>Config isolation:</strong> <code>--setting-sources project</code> from a directory with no project settings, plus <code>--settings &lt;config&gt;</code>. Note that <code>--setting-sources ""</code> is rejected and silently eats the next argument.</li>
+<li><strong>Force <code>InvariantCulture</code> before writing any CSV.</strong> Under a comma-decimal locale the cost field wrote <code>0,05</code> and split the column.</li>
+<li><strong>Launch long rounds detached</strong>, not through an agent tool harness — background runs launched that way were killed twice mid-round.</li>
+<li><strong>Grade with a hidden suite, and hash the visible tests.</strong> Without the tamper check, "all tests pass" includes the runs that edited the tests.</li>
+</ul>
+<div class="finding">
+<h4>An invalidated benchmark, kept as a warning</h4>
+<p>An earlier attempt produced dramatic numbers — 30,379 median input tokens for <code>bare</code> against 167,624 for all three plugins. Reading the actual outputs showed the configs did three <em>different jobs</em>. superpowers-only asked a clarifying question instead of doing the task; modes-only tried to write files, hit permission-denied in <code>-p</code> mode, and retried — and every denied tool call is another round trip re-reading the whole prefix. The input explosion measured permission denials and behavioural divergence, not efficiency.</p>
+<p><strong>Always read the outputs before reading the aggregates.</strong></p>
+</div>
+</div>
+
+<div data-lang="tr">
+<ul>
+<li><strong>Config izolasyonu:</strong> proje ayarı olmayan bir dizinden <code>--setting-sources project</code>, artı <code>--settings &lt;config&gt;</code>. Not: <code>--setting-sources ""</code> reddediliyor ve sessizce bir sonraki argümanı yutuyor.</li>
+<li><strong>Herhangi bir CSV yazmadan önce <code>InvariantCulture</code> zorla.</strong> Virgüllü ondalık kullanan bir yerelde maliyet alanı <code>0,05</code> yazdı ve sütunu ikiye böldü.</li>
+<li><strong>Uzun turları detached başlat</strong>, agent tool harness'ı üzerinden değil — o şekilde başlatılan arka plan koşuları tur ortasında iki kez öldürüldü.</li>
+<li><strong>Gizli bir suite ile notlandır ve görünür testleri hash'le.</strong> Kurcalama kontrolü olmadan "tüm testler geçti" ifadesine testleri düzenleyen koşular da dahil olur.</li>
+</ul>
+<div class="finding">
+<h4>Uyarı olarak saklanan geçersiz bir benchmark</h4>
+<p>Daha erken bir deneme çarpıcı sayılar üretti — <code>bare</code> için 30.379 medyan input token'a karşı üç plugin birden için 167.624. Gerçek çıktıları okuyunca config'lerin üç <em>farklı iş</em> yaptığı görüldü. Yalnızca-superpowers, görevi yapmak yerine açıklayıcı bir soru sordu; yalnızca-modes dosya yazmayı denedi, <code>-p</code> modunda izin reddi aldı ve tekrar denedi — ve reddedilen her tool çağrısı, tüm ön eki yeniden okuyan başka bir gidiş-dönüş demek. Input patlaması verimliliği değil, izin reddi ile davranış sapmasını ölçtü.</p>
+<p><strong>Toplamları okumadan önce her zaman çıktıları oku.</strong></p>
+</div>
+</div>
+
+<!-- ============ COST AUDIT ============ -->
+<h2 id="cost"><span data-lang="en">The token audit — what a plugin costs before you type anything</span><span data-lang="tr">Token denetimi — bir plugin sen yazmadan önce neye mal oluyor</span></h2>
+
+<div data-lang="en">
+<p class="lede">Every enabled plugin costs tokens on <em>every</em> session: its <code>SessionStart</code> hook output, plus one line per skill and per agent in the listings the model receives.</p>
+<div class="tw"><table>
+  <thead><tr><th>Config (<code>claude -p</code>, Haiku, identical prompt)</th><th class="num">Prompt tokens</th></tr></thead>
+  <tbody>
+    <tr><td>no plugins, no custom hooks</td><td class="num">22,651</td></tr>
+    <tr><td>caveman+ponytail off, superpowers on</td><td class="num">24,842</td></tr>
+    <tr><td><strong>3-plugin config (this setup)</strong></td><td class="num"><strong>27,803</strong></td></tr>
+    <tr><td>old 11-plugin config</td><td class="num">29,137</td></tr>
+  </tbody>
+</table></div>
+<p>Saved 1,334 tokens per session — 4.6% of the total prompt, 20.6% of the plugin+hook stack. caveman+ponytail's own fixed input cost is <strong>2,961 tokens/session</strong>.</p>
+<h3>How the cuts were chosen</h3>
+<p><code>~/.claude.json</code> records real usage in <code>pluginUsage</code> and <code>skillUsage</code>. Across 22 startups, seven plugins sat at <code>usageCount: 0</code>. Three of those duplicated a built-in that ships with the CLI anyway, so disabling them cost no capability at all.</p>
+<pre><code>node -e "const c=require(process.env.USERPROFILE+'/.claude.json'); console.log(c.pluginUsage)"</code></pre>
+<div class="finding">
+<h4><code>security-guidance</code> was disabled for cost, not because it misbehaved</h4>
+<p>Its hooks fire a 111 KB Python script on every <code>UserPromptSubmit</code>, every edit-shaped <code>PostToolUse</code>, every <code>Bash</code>, and every <code>Stop</code> — six Python spawns inside one second in the log. Outside a git repo it exits early. <strong>Inside a git repo the <code>Stop</code> hook runs an Agent SDK security review per turn, billed to the same quota as the session itself.</strong> That is the single largest recurring cost in this setup. The on-demand replacements are the built-in <code>/security-review</code> and <code>/code-review</code>.</p>
+</div>
+<div class="finding">
+<h4>Trimming the skill list saves nothing — the listing is capped</h4>
+<p>The whole skill listing costs ~2,588 tokens and is capped by <code>skillListingBudgetFraction</code> (default 1% of the context window, in characters). When the listing exceeds the cap, descriptions are shortened to fit — so removing a skill does <strong>not</strong> shrink the total, it just lets the survivors keep longer descriptions. Trimming buys triggering accuracy, not tokens.</p>
+</div>
+<div class="finding">
+<h4><code>skillOverrides</code> cannot hide plugin skills, by design</h4>
+<p>The resolver reads <code>if (e.type !== "prompt" || e.source === "plugin") return "on"</code> — a plugin-sourced skill short-circuits before the setting is consulted. An attempt with 13 entries saved <strong>zero</strong> tokens because 12 of them were plugin skills. It works only on your own skills under <code>~/.claude/skills/</code>. The only lever on a plugin skill is disabling the whole plugin.</p>
+</div>
+</div>
+
+<div data-lang="tr">
+<p class="lede">Etkin her plugin <em>her</em> oturumda token harcar: <code>SessionStart</code> hook çıktısı, artı modele giden listelerde her skill ve her agent için birer satır.</p>
+<div class="tw"><table>
+  <thead><tr><th>Config (<code>claude -p</code>, Haiku, aynı prompt)</th><th class="num">Prompt token</th></tr></thead>
+  <tbody>
+    <tr><td>plugin yok, özel hook yok</td><td class="num">22.651</td></tr>
+    <tr><td>caveman+ponytail kapalı, superpowers açık</td><td class="num">24.842</td></tr>
+    <tr><td><strong>3 plugin'li config (bu kurulum)</strong></td><td class="num"><strong>27.803</strong></td></tr>
+    <tr><td>eski 11 plugin'li config</td><td class="num">29.137</td></tr>
+  </tbody>
+</table></div>
+<p>Oturum başına 1.334 token tasarruf — toplam promptun %4,6'sı, plugin+hook yığınının %20,6'sı. caveman+ponytail'in kendi sabit input maliyeti: oturum başına <strong>2.961 token</strong>.</p>
+<h3>Kesintiler nasıl seçildi</h3>
+<p><code>~/.claude.json</code> gerçek kullanımı <code>pluginUsage</code> ve <code>skillUsage</code> altında kaydediyor. 22 başlangıç boyunca yedi plugin <code>usageCount: 0</code> idi. Bunların üçü zaten CLI ile gelen bir built-in'i tekrarlıyordu, yani kapatmak hiçbir yetenek kaybı doğurmadı.</p>
+<pre><code>node -e "const c=require(process.env.USERPROFILE+'/.claude.json'); console.log(c.pluginUsage)"</code></pre>
+<div class="finding">
+<h4><code>security-guidance</code> kötü çalıştığı için değil, maliyeti yüzünden kapatıldı</h4>
+<p>Hook'ları 111 KB'lık bir Python scriptini her <code>UserPromptSubmit</code>'te, her düzenleme biçimli <code>PostToolUse</code>'da, her <code>Bash</code>'te ve her <code>Stop</code>'ta çalıştırıyor — logda bir saniye içinde altı Python spawn'ı. Bir git reposu dışında erken çıkıyor. <strong>Bir git reposu içinde ise <code>Stop</code> hook'u her turda Agent SDK ile bir güvenlik incelemesi çalıştırıyor, faturası oturumun kendisiyle aynı kotaya yazılıyor.</strong> Bu kurulumdaki tek en büyük tekrarlayan maliyet bu. İstek üzerine çalışan karşılıkları: built-in <code>/security-review</code> ve <code>/code-review</code>.</p>
+</div>
+<div class="finding">
+<h4>Skill listesini kısaltmak hiçbir şey kazandırmıyor — liste zaten tavanlı</h4>
+<p>Skill listesinin tamamı ~2.588 token tutuyor ve <code>skillListingBudgetFraction</code> ile sınırlanıyor (varsayılan: bağlam penceresinin %1'i, karakter cinsinden). Liste tavanı aştığında açıklamalar sığacak şekilde kısaltılıyor — yani bir skill'i kaldırmak toplamı <strong>küçültmüyor</strong>, sadece kalanların daha uzun açıklama tutmasına izin veriyor. Kısaltmak tetikleme isabetini artırır, token kazandırmaz.</p>
+</div>
+<div class="finding">
+<h4><code>skillOverrides</code> plugin skill'lerini gizleyemez, tasarım gereği</h4>
+<p>Çözümleyici şunu okuyor: <code>if (e.type !== "prompt" || e.source === "plugin") return "on"</code> — plugin kaynaklı bir skill, ayar danışılmadan kısa devre yapıyor. 13 girdilik bir deneme <strong>sıfır</strong> token tasarruf etti, çünkü 12'si plugin skill'iydi. Yalnızca <code>~/.claude/skills/</code> altındaki kendi skill'lerinde çalışıyor. Bir plugin skill'i üzerindeki tek kaldıraç plugin'in tamamını kapatmak.</p>
+</div>
+</div>
+
+<!-- ============ GOTCHAS ============ -->
+<h2 id="gotchas"><span data-lang="en">Gotchas that cost real debugging time</span><span data-lang="tr">Gerçek hata ayıklama zamanına mal olmuş tuzaklar</span></h2>
+
+<div data-lang="en">
+<div class="finding">
+<h4>One slow <code>SessionStart</code> hook kills every other one</h4>
+<p>They share a single timeout window. When it expires the whole batch is cancelled and <strong>no</strong> hook output is injected — so a slow custom hook silently takes every plugin's activation down with it, and the session looks like nothing was ever installed. Observed: a PowerShell hook took 5738 ms against a 5000 ms budget (<code>hook_cancelled</code>, <code>timedOut: true</code> in the transcript) and three modes went missing at once.</p>
+<p><strong>Never put PowerShell in a <code>SessionStart</code> hook</strong> — cold start alone is ~2–3 s. Node starts in ~200 ms. Diagnose by grepping <code>~/.claude/projects/&lt;slug&gt;/&lt;session-id&gt;.jsonl</code> for <code>hook_cancelled</code> versus <code>hook_success</code>.</p>
+</div>
+<div class="finding">
+<h4>Enabled ≠ installed</h4>
+<p><code>settings.json</code> can list a plugin under <code>enabledPlugins</code> while <code>~/.claude/plugins/installed_plugins.json</code> has no entry for it — a marketplace refresh dropped two plugins from that registry in one observed case. Symptom: <code>claude plugin list</code> omits the plugin even though its skills still load. Fix with <code>claude plugin install &lt;plugin&gt;@&lt;marketplace&gt; -y</code>.</p>
+</div>
+<div class="finding">
+<h4>A stray <code>.md</code> in a plugin's <code>agents/</code> directory becomes a phantom agent</h4>
+<p>caveman ships <code>agents/AGENTS.md</code> and <code>agents/CLAUDE.md</code> as contributor docs. Missing YAML frontmatter does not exclude them — they surface in the roster as <code>caveman:AGENTS</code> and <code>caveman:CLAUDE</code>, each spawnable with <strong>All tools</strong>. Fix by renaming both to <code>.doc.txt</code>. There is no <code>agentOverrides</code> setting, so this is a cache edit and a plugin update restores the files.</p>
+</div>
+<div class="finding">
+<h4>A loose skill file silently shadows the plugin version</h4>
+<p>A stray <code>~/.claude/skills/&lt;name&gt;/SKILL.md</code> left over from an old manual install overrides the plugin copy even though <code>settings.json</code> looks correct — the plugin shows as installed but behaves wrong. <code>diff</code> it against the cached copy and delete or overwrite the loose one.</p>
+</div>
+<div class="finding">
+<h4>Scripted <code>claude -p</code> runs silently lose their flags on Windows</h4>
+<p>If <code>claude</code> on <code>PATH</code> is a <code>claude.cmd</code> batch shim forwarding with <code>%*</code>, <code>cmd.exe</code> truncates the command line at the first newline inside an argument. A multi-line <code>-p</code> prompt therefore drops every flag after it — <code>--output-format json</code> and <code>--permission-mode</code> both vanish, and the run comes back as prose with every tool call denied. It looks like a permissions bug and is not. Call the real <code>.exe</code> directly from scripts.</p>
+</div>
+<div class="finding">
+<h4><code>/code-review ultra</code> is billed, not configured</h4>
+<p>It is built into the CLI binary, not supplied by the <code>code-review</code> plugin, so enabling or disabling plugins has no effect on it. A 5-agent Opus fleet takes ~5–10 min and costs <strong>$5–$25 per run</strong>, charged to extra usage credits. It appears and disappears with credit state, not settings: when <code>~/.claude.json</code> shows <code>cachedExtraUsageDisabledReason: "out_of_credits"</code>, the option is simply hidden and there is no toggle to flip.</p>
+</div>
+</div>
+
+<div data-lang="tr">
+<div class="finding">
+<h4>Yavaş tek bir <code>SessionStart</code> hook'u diğerlerinin hepsini öldürür</h4>
+<p>Tek bir timeout penceresi paylaşıyorlar. Süre dolduğunda tüm grup iptal edilir ve <strong>hiçbir</strong> hook çıktısı enjekte edilmez — yani yavaş bir özel hook, her plugin'in aktivasyonunu da sessizce yanında götürür ve oturum hiçbir şey kurulmamış gibi görünür. Gözlenen: PowerShell tabanlı bir hook 5000 ms bütçeye karşı 5738 ms sürdü (transcript'te <code>hook_cancelled</code>, <code>timedOut: true</code>) ve üç mod birden kayboldu.</p>
+<p><strong><code>SessionStart</code> hook'una asla PowerShell koyma</strong> — soğuk başlangıç tek başına ~2–3 sn. Node ~200 ms'de açılıyor. Teşhis: <code>~/.claude/projects/&lt;slug&gt;/&lt;session-id&gt;.jsonl</code> içinde <code>hook_cancelled</code> ile <code>hook_success</code> aramak.</p>
+</div>
+<div class="finding">
+<h4>Etkin ≠ kurulu</h4>
+<p><code>settings.json</code>, <code>enabledPlugins</code> altında bir plugin'i listelerken <code>~/.claude/plugins/installed_plugins.json</code> içinde ona ait kayıt olmayabilir — gözlenen bir vakada marketplace yenilemesi iki plugin'i o kayıttan düşürdü. Belirti: skill'leri hâlâ yüklenmesine rağmen <code>claude plugin list</code> plugin'i göstermiyor. Çözüm: <code>claude plugin install &lt;plugin&gt;@&lt;marketplace&gt; -y</code>.</p>
+</div>
+<div class="finding">
+<h4>Bir plugin'in <code>agents/</code> klasöründeki başıboş <code>.md</code>, hayalet agent'a dönüşür</h4>
+<p>caveman, <code>agents/AGENTS.md</code> ve <code>agents/CLAUDE.md</code> dosyalarını katkı dokümanı olarak gönderiyor. YAML frontmatter'ın olmaması bunları dışarıda bırakmıyor — listede <code>caveman:AGENTS</code> ve <code>caveman:CLAUDE</code> olarak, her biri <strong>All tools</strong> ile spawn edilebilir şekilde çıkıyorlar. Çözüm: ikisini de <code>.doc.txt</code> olarak yeniden adlandır. <code>agentOverrides</code> diye bir ayar yok, yani bu bir cache düzenlemesi ve plugin güncellemesi dosyaları geri getirir.</p>
+</div>
+<div class="finding">
+<h4>Başıboş bir skill dosyası plugin sürümünü sessizce gölgeler</h4>
+<p>Eski bir elle kurulumdan kalan <code>~/.claude/skills/&lt;ad&gt;/SKILL.md</code>, <code>settings.json</code> doğru görünse bile plugin kopyasını geçersiz kılar — plugin kurulu görünür ama yanlış davranır. Önbellekteki kopyayla <code>diff</code>'le, sonra başıboş olanı sil veya üzerine yaz.</p>
+</div>
+<div class="finding">
+<h4>Scriptli <code>claude -p</code> koşuları Windows'ta bayraklarını sessizce kaybediyor</h4>
+<p><code>PATH</code> üzerindeki <code>claude</code>, <code>%*</code> ile yönlendiren bir <code>claude.cmd</code> batch shim'iyse, <code>cmd.exe</code> komut satırını bir argümanın içindeki ilk satır sonunda keser. Çok satırlı bir <code>-p</code> promptu bu yüzden kendisinden sonraki tüm bayrakları düşürür — <code>--output-format json</code> ve <code>--permission-mode</code> ikisi de kaybolur, koşu düz metin olarak döner ve her tool çağrısı reddedilir. İzin hatası gibi görünür ama değildir. Scriptlerden doğrudan gerçek <code>.exe</code> dosyasını çağır.</p>
+</div>
+<div class="finding">
+<h4><code>/code-review ultra</code> faturalıdır, yapılandırma değildir</h4>
+<p>CLI binary'sinin içinde gömülü, <code>code-review</code> plugin'inden gelmiyor, yani plugin açıp kapatmak onu etkilemiyor. 5 agent'lı bir Opus filosu ~5–10 dakika sürüyor ve <strong>çalıştırma başına 5–25 dolar</strong>, ekstra kullanım kredisine yazılıyor. Ayarlarla değil kredi durumuyla görünüp kayboluyor: <code>~/.claude.json</code> içinde <code>cachedExtraUsageDisabledReason: "out_of_credits"</code> görünüyorsa seçenek gizlenir ve çevrilecek bir anahtar yoktur.</p>
+</div>
+</div>
+
+<!-- ============ PLUGIN ROSTER ============ -->
+<h2 id="plugins"><span data-lang="en">The plugin roster</span><span data-lang="tr">Plugin listesi</span></h2>
+
+<div data-lang="en">
+<p class="lede">Three enabled, eight disabled. The <code>false</code> entries are kept rather than deleted, so the decision stays recorded and one edit re-enables any of them.</p>
+<div class="tw"><table>
+  <thead><tr><th>Plugin</th><th>State</th><th>Reason</th></tr></thead>
+  <tbody>
+    <tr><td><code>superpowers</code></td><td class="win">enabled</td><td>Best measured correctness lever on hard agentic work — 3× bare for +56% cost</td></tr>
+    <tr><td><code>ponytail</code></td><td class="win">enabled</td><td>Lazy/minimal-code mode. Worth it for prose, a liability for hard debugging</td></tr>
+    <tr><td><code>caveman</code></td><td class="win">enabled</td><td>Terse output mode. Same trade-off as ponytail</td></tr>
+    <tr><td><code>security-guidance</code></td><td>disabled</td><td>Per-turn LLM review inside git repos, billed to the session's own quota</td></tr>
+    <tr><td><code>code-simplifier</code></td><td>disabled</td><td>Duplicates the built-in <code>simplify</code> skill</td></tr>
+    <tr><td><code>code-review</code></td><td>disabled</td><td>Duplicates the built-in <code>code-review</code> skill. <code>ultra</code> is unaffected</td></tr>
+    <tr><td><code>skill-creator</code></td><td>disabled</td><td>Duplicates superpowers' <code>writing-skills</code></td></tr>
+    <tr><td><code>frontend-design</code></td><td>disabled</td><td><code>usageCount: 0</code> across 22 startups</td></tr>
+    <tr><td><code>claude-md-management</code></td><td>disabled</td><td><code>usageCount: 0</code></td></tr>
+    <tr><td><code>github</code></td><td>disabled</td><td>Its MCP server needs an env var nothing sets — a doomed connection every startup</td></tr>
+    <tr><td><code>feature-dev</code></td><td>disabled</td><td><code>usageCount: 0</code></td></tr>
+  </tbody>
+</table></div>
+<p class="lede"><em>Nothing here is affiliated with Anthropic. <code>superpowers</code> is an official marketplace plugin; <a href="https://github.com/DietrichGebert/ponytail">ponytail</a> and <a href="https://github.com/JuliusBrussee/caveman">caveman</a> are third-party plugins by their respective authors — this report only measures and configures them.</em></p>
+</div>
+
+<div data-lang="tr">
+<p class="lede">Üçü etkin, sekizi kapalı. <code>false</code> girdileri silinmek yerine bırakıldı; böylece karar kayıtlı kalıyor ve tek bir düzenleme herhangi birini tekrar açıyor.</p>
+<div class="tw"><table>
+  <thead><tr><th>Plugin</th><th>Durum</th><th>Gerekçe</th></tr></thead>
+  <tbody>
+    <tr><td><code>superpowers</code></td><td class="win">etkin</td><td>Zor agentic işte ölçülen en iyi doğruluk kaldıracı — +%56 maliyetle bare'in 3 katı</td></tr>
+    <tr><td><code>ponytail</code></td><td class="win">etkin</td><td>Tembel/minimum kod modu. Metinde değer, zor debugging'de risk</td></tr>
+    <tr><td><code>caveman</code></td><td class="win">etkin</td><td>Kısa çıktı modu. ponytail ile aynı ödünleşim</td></tr>
+    <tr><td><code>security-guidance</code></td><td>kapalı</td><td>Git repoları içinde her turda LLM incelemesi, oturumun kendi kotasına faturalanıyor</td></tr>
+    <tr><td><code>code-simplifier</code></td><td>kapalı</td><td>Built-in <code>simplify</code> skill'i ile aynı iş</td></tr>
+    <tr><td><code>code-review</code></td><td>kapalı</td><td>Built-in <code>code-review</code> skill'i ile aynı iş. <code>ultra</code> etkilenmiyor</td></tr>
+    <tr><td><code>skill-creator</code></td><td>kapalı</td><td>superpowers'ın <code>writing-skills</code> skill'i ile aynı iş</td></tr>
+    <tr><td><code>frontend-design</code></td><td>kapalı</td><td>22 başlangıç boyunca <code>usageCount: 0</code></td></tr>
+    <tr><td><code>claude-md-management</code></td><td>kapalı</td><td><code>usageCount: 0</code></td></tr>
+    <tr><td><code>github</code></td><td>kapalı</td><td>MCP sunucusu hiçbir yerde ayarlanmayan bir env değişkeni istiyor — her başlangıçta başarısız bağlantı</td></tr>
+    <tr><td><code>feature-dev</code></td><td>kapalı</td><td><code>usageCount: 0</code></td></tr>
+  </tbody>
+</table></div>
+<p class="lede"><em>Buradaki hiçbir şey Anthropic ile bağlantılı değildir. <code>superpowers</code> resmî marketplace plugin'i; <a href="https://github.com/DietrichGebert/ponytail">ponytail</a> ve <a href="https://github.com/JuliusBrussee/caveman">caveman</a> kendi yazarlarına ait üçüncü parti plugin'ler — bu rapor onları yalnızca ölçüyor ve yapılandırıyor.</em></p>
+</div>
+
+<!-- ============ INSTALL ============ -->
+<h2 id="install"><span data-lang="en">Install it</span><span data-lang="tr">Kurulum</span></h2>
+
+<div data-lang="en">
+<p class="lede">The repository ships a settings template, both hooks, and a step-by-step install file written so you can hand it to your own Claude Code session.</p>
+<pre><code>git clone https://github.com/hero-999-dev/claude-code-setup-lab.git
+cd claude-code-setup-lab</code></pre>
+<p>Then start a session in the clone and say:</p>
+<pre><code>Read INSTALL.md and set this up for me.</code></pre>
+<div class="note plain">
+<p><strong>Step 0 of that file is a decision, not a command.</strong> It asks which parts you actually want, because the benchmark says installing all of them is the wrong default for coding work. The recommended starting point for a coding-heavy user is <code>superpowers</code> plus the verification hook, without <code>caveman</code>/<code>ponytail</code>.</p>
+</div>
+<p>Two things the install file will insist on, and they are worth doing by hand too: back up <code>~/.claude/settings.json</code> first, and <em>merge</em> the template rather than overwriting — the target file may already hold permissions, MCP config, or hooks that must survive.</p>
+<div class="btns">
+  <a class="btn primary" href="https://github.com/hero-999-dev/claude-code-setup-lab/blob/main/INSTALL.md">Full install guide</a>
+  <a class="btn" href="https://github.com/hero-999-dev/claude-code-setup-lab/releases/latest">Download the report (.zip)</a>
+</div>
+</div>
+
+<div data-lang="tr">
+<p class="lede">Repo bir ayar şablonu, iki hook ve kendi Claude Code oturumuna verebileceğin şekilde yazılmış adım adım bir kurulum dosyası içeriyor.</p>
+<pre><code>git clone https://github.com/hero-999-dev/claude-code-setup-lab.git
+cd claude-code-setup-lab</code></pre>
+<p>Sonra klon içinde bir oturum başlat ve şunu söyle:</p>
+<pre><code>INSTALL.tr.md dosyasını oku ve bunu bana kur.</code></pre>
+<div class="note plain">
+<p><strong>O dosyanın 0. adımı bir komut değil, bir karar.</strong> Hangi parçaları gerçekten istediğini sorar, çünkü benchmark'a göre hepsini birden kurmak kodlama işi için yanlış varsayılan. Kodlama ağırlıklı bir kullanıcı için önerilen başlangıç: <code>superpowers</code> artı verification hook'u, <code>caveman</code>/<code>ponytail</code> olmadan.</p>
+</div>
+<p>Kurulum dosyasının ısrar edeceği ve elle yaparken de yapmaya değer iki şey: önce <code>~/.claude/settings.json</code> dosyasını yedekle, ve şablonun üzerine yazmak yerine <em>birleştir</em> — hedef dosyada korunması gereken izinler, MCP config'i veya hook'lar olabilir.</p>
+<div class="btns">
+  <a class="btn primary" href="https://github.com/hero-999-dev/claude-code-setup-lab/blob/main/INSTALL.tr.md">Tam kurulum rehberi</a>
+  <a class="btn" href="https://github.com/hero-999-dev/claude-code-setup-lab/releases/latest">Raporu indir (.zip)</a>
+</div>
+</div>
+
+<footer>
+  <p data-lang="en">Measured on one machine, one model (Sonnet), 3–5 samples per cell. The directions are consistent across rounds and the round-3 output-volume split is clean, but treat exact percentages as indicative. Cost figures are API pricing at the time of the runs. · <a href="https://github.com/hero-999-dev/claude-code-setup-lab">Source on GitHub</a></p>
+  <p data-lang="tr">Tek makinede, tek modelle (Sonnet), hücre başına 3–5 örnekle ölçüldü. Yönler turlar arasında tutarlı ve Tur 3'teki çıktı hacmi ayrımı temiz, ama kesin yüzdeleri gösterge sayın. Maliyet rakamları koşu anındaki API fiyatlarıdır. · <a href="https://github.com/hero-999-dev/claude-code-setup-lab">GitHub'da kaynak</a></p>
+</footer>
+
+</main>
+</div>
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  var buttons = document.querySelectorAll('.langswitch button');
+
+  function apply(lang) {
+    root.setAttribute('data-active', lang);
+    root.setAttribute('lang', lang);
+    buttons.forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.set === lang));
+    });
+    try { localStorage.setItem('ccsl-lang', lang); } catch (e) {}
+  }
+
+  var stored = null;
+  try { stored = localStorage.getItem('ccsl-lang'); } catch (e) {}
+  if (stored !== 'en' && stored !== 'tr') {
+    stored = (navigator.language || '').toLowerCase().indexOf('tr') === 0 ? 'tr' : 'en';
+  }
+  apply(stored);
+
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () { apply(b.dataset.set); });
+  });
+})();
+</script>
+
+</body>
+</html>
