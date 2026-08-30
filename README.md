@@ -1,9 +1,17 @@
 # Project Lea
 
-Lea is a 226-word SessionStart hook for Claude Code, designed from benchmark data rather
-than taste: it replaces a stack of plugins with one file. This repository is the hook, the
-install guide, and the measurements it was built from — five task types, 286 graded runs on
-Sonnet and Opus, plus a round on a real production site.
+A measurement lab for Claude Code configurations, and the configuration it produced.
+
+The lab is a resumable benchmark harness: **286 graded agent runs** over five task types,
+seven configurations and two models, marked by hidden test suites the agent never sees and by
+a real browser driven over CDP — plus a round on a live production site instead of a toy task.
+It survives usage limits, resumes mid-matrix, and keeps every failed stream instead of
+overwriting it.
+
+**Lea** is what came out of the data: one 226-word `SessionStart` hook, no plugins and no
+dependencies, that matched or beat 6,000-token plugin stacks at 13–53% lower cost. Rewriting a
+single paragraph of it — the exception clause, from permission to obligation — took the hard
+round from 4/20 correct to 13/20, with both arms measured the same day.
 
 **📖 The full report is `docs/index.html`** — clone or download the repository and open that
 file in a browser. It is a single self-contained page: no server, no build step, no network
