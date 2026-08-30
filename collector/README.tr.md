@@ -40,6 +40,33 @@ Başka hiçbir şey. Çalışma dizinine asla yazılmaz: gölge ajan yalnızca
 `~/.claude/shadow/runs/<id>/work/` içinde, yani bir kopyada koşar. **Hiçbir şey yüklenmiyor.**
 Veri makineni ancak sen `export.ps1` çalıştırıp dosyayı gönderdiğinde terk eder.
 
+## Tek Anthropic hesabında birden çok kurulum
+
+Her makinenin ve her Windows kullanıcısının kendi `~/.claude` dizini var, yani kurulumlar
+birbirine karışmaz — ama **aynı Anthropic hesabına** giriş yaparlarsa aynı kullanım penceresini
+harcarlar. `config.json` içindeki bütçeler kurulum başına ve birbirlerinden habersiz, dolayısıyla
+N kurulum tek pencereden N katı pay alabilir.
+
+Dağıtmadan önce böl: tek hesapta üç toplayıcı varsa her birinde `window_budget_usd` $1,
+model keseleri de yaklaşık opus $0.70 / sonnet $0.30 olsun. Rapor yine dolar, sadece daha yavaş,
+ve pencerenin kalanı senin kendi oturumlarına kalır.
+
+Aynı makinedeki ikinci bir Windows kullanıcısı için Claude Code CLI'ın **o kullanıcıya** kurulu
+olması gerekir — bir kullanıcının profili diğeri tarafından okunamaz. Kurulum bunu kontrol eder
+ve eksikse adıyla söyler.
+
+## Dosyaları makineye almak
+
+Repo private, yani klonlama aynı GitHub hesabını gerektirir:
+
+```powershell
+gh auth login          # makine ya da kullanıcı başına bir kez
+gh repo clone hero-999-dev/Project-Lea
+```
+
+Ya da giriş yapmışken repo sayfasından ZIP indirip aç — toplayıcının git geçmişine ihtiyacı yok,
+sadece dosyalara.
+
 ## Gereksinimler
 
 PowerShell 7 (`pwsh`), Node, Python, git ve Claude Code CLI. Kurulum eksik olanı adıyla söyler.

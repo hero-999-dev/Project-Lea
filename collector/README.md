@@ -40,6 +40,33 @@ Nothing else. Your working directory is never written to: the shadow agent only 
 inside `~/.claude/shadow/runs/<id>/work/`, a copy. **Nothing is uploaded.** Data leaves your
 machine only when you run `export.ps1` and send the file yourself.
 
+## Several installs on one Anthropic account
+
+Machines and Windows users each get their own `~/.claude`, so the installs never collide - but
+if they sign in to the **same Anthropic account**, they spend the same usage window. The budgets
+in `config.json` are per install and know nothing about each other, so N installs can take N
+times the intended share of one window.
+
+Divide before you deploy: with three collectors on one account, set `window_budget_usd` to $1
+and the per-model purses to about $0.70 opus / $0.30 sonnet in each. The report still fills up,
+just more slowly, and your own sessions keep the rest of the window.
+
+A second Windows user on the same machine needs the Claude Code CLI installed **for that user** -
+one user's profile is not readable by another. The installer checks for it and names it if it is
+missing.
+
+## Getting the files onto the machine
+
+The repository is private, so the clone needs the same GitHub account:
+
+```powershell
+gh auth login          # once per machine or user
+gh repo clone hero-999-dev/Project-Lea
+```
+
+Or download the ZIP from the repository page while signed in and unpack it - the collector needs
+no git history, only the files.
+
 ## Requirements
 
 PowerShell 7 (`pwsh`), Node, Python, git, and the Claude Code CLI. The installer checks and
