@@ -211,21 +211,21 @@ body.locked .gate { display: flex; }
 .shake { animation: shake 0.3s; }
 @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
 
-/* Timeline: one rule, a dot per entry, the pivotal ones filled in the accent colour. */
-.tl { list-style: none; margin: 1.5rem 0 0; padding-inline-start: 1.5rem; border-inline-start: 2px solid var(--border); }
-.tl > li { position: relative; padding-bottom: 1.45rem; }
+/* TIMELINE:CSS:START */
+.tl { list-style: none; margin: 1.4rem 0 0; padding-inline-start: 1.5rem; border-inline-start: 2px solid var(--border); }
+.tl > li { position: relative; padding-bottom: 1.5rem; }
 .tl > li:last-child { padding-bottom: 0; }
 .tl > li::before {
   content: ""; position: absolute; inset-inline-start: calc(-1.5rem - 6px); top: 0.4rem;
   width: 10px; height: 10px; border-radius: 50%;
-  background: var(--bg); border: 2px solid var(--border-strong);
+  background: var(--bg); border: 2px solid var(--border);
 }
-.tl > li.key::before { background: var(--accent); border-color: var(--accent); }
+.tl > li.tl-key::before  /* namespaced: one report styles a chart legend .key */ { background: var(--accent); border-color: var(--accent); }
 .tl time { display: block; font-family: var(--mono); font-size: 0.74rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-faint); }
-.tl h4 { margin: 0.15rem 0 0.35rem; color: var(--text); font-size: 1rem; }
+.tl h4 { margin: 0.15rem 0 0.35rem; font-size: 1rem; font-weight: 640; color: var(--text); }
 .tl p { margin: 0 0 0.4rem; color: var(--text-dim); max-width: 68ch; }
 .tl p:last-child { margin-bottom: 0; }
-.tl .tag { display: inline-block; font-family: var(--mono); font-size: 0.74rem; color: var(--text-dim); background: var(--bg-sunken); border: 1px solid var(--border); border-radius: 5px; padding: 0.05rem 0.4rem; }
+/* TIMELINE:CSS:END */
 </style>
 </head>
 <body class="locked">
@@ -976,68 +976,65 @@ else's sample of the contract. Say what you checked. Explaining a concept in cha
 </div>
 </div>
 
-<!-- ============ METHOD ============ -->
-<!-- ============ TIMELINE ============ -->
+<!-- TIMELINE:START -->
 <h2 id="timeline"><span data-lang="en">How it unfolded — fifteen days</span><span data-lang="tr">Nasıl ilerledi — on beş gün</span></h2>
 
 <div data-lang="en">
 <p class="lede">The project did not start as a benchmark. It started as two broken hooks, and every round after that exists because a previous answer turned out to be unsafe to believe.</p>
 
 <ol class="tl">
-<li class="key">
-  <time>2026-08-16 · the accident</time>
-  <h4>Two outages, and a question nobody could answer</h4>
-  <p>Skills stopped auto-loading. Two separate causes: every <code>SessionStart</code> hook shares one timeout window, so one slow hook cancels the whole batch — and <code>enabledPlugins</code> had drifted out of sync with <code>installed_plugins.json</code>. Both were fixed in an afternoon.</p>
-  <p>The uncomfortable part was the question that came out of it: eleven plugins were enabled, and nobody could say what any of them cost or whether it helped. That question is the whole project.</p>
-</li>
-<li>
-  <time>2026-08-17 · the audit</time>
-  <h4>Eleven plugins cut to three, then a harness to check the cut</h4>
-  <p>The token audit came first — measure what each plugin injects before you type anything — and it removed eight of eleven. But an audit only measures cost, never benefit, so the harness followed: five configurations, identical tasks, identical prompts, identical repository copies, and grading the agent cannot reach — a hidden test suite copied in after it exits.</p>
-  <p><span class="tag">rounds 1–4, Sonnet</span></p>
-</li>
-<li>
-  <time>2026-08-18 · the first answer</time>
-  <h4>A real project, one run per config — and a headline that did not survive</h4>
-  <p>Toy tasks answer toy questions, so each config was given a copy of a live seven-language site and told to improve it. The first result read <strong>"<code>full</code> is cheapest at $2.90, 60% of bare"</strong>. It was written down with an n=1 warning attached, and that warning turned out to be the only durable part of it.</p>
-</li>
-<li>
-  <time>2026-08-19 → 08-24 · the caveats fight back</time>
-  <h4>A second trap task, a second model, and n=3</h4>
-  <p>Quality had separated in exactly one round, so a second trap task (Paginator) was written specifically to reproduce that split. It failed to: every config passed. Then every round was re-run on Opus, where the quality difference vanished entirely and the cost ordering reversed in two cells.</p>
-  <p>The project round went to three samples per config. The $2.90 headline died there: four of five configs landed inside a 16% band while a single config's own runs ranged from $2.78 to $9.39.</p>
-</li>
-<li class="key">
-  <time>2026-08-25 · the design</time>
-  <h4>Instead of picking a config, build one from the mechanisms</h4>
-  <p>The matrix had exposed three: prose savings come from shorter output, tool-work losses come from a fixed ruleset re-read every turn, and correctness tracks output volume during a contract audit. Lea was written against those three and taken from v1 to v7 in a day, re-measuring every round after every change — which is how the discovery landed that <em>where a sentence sits</em> in the ruleset moved the numbers more than the sentence did, four separate times.</p>
-  <p>The same day produced the rule that governs everything since: <strong>never compare a new run against a stored dollar figure.</strong> Re-running an unchanged baseline gave a different implied price than August's — the regime had moved underneath the whole table.</p>
-  <p><span class="tag">135-cell matrix complete</span></p>
-</li>
-<li>
-  <time>2026-08-26 · live, and a warning</time>
-  <h4>Lea goes live; the headline result fails to replicate</h4>
-  <p>Opus confirmed the mechanism (−42% prose, −53% on the hard fix at identical correctness), the live config was switched over, and a v8 candidate was drafted by <em>reading</em> the one failing run instead of guessing at it.</p>
-  <p>Then the same unchanged config was re-measured on the hard round and scored <strong>1/5 where it had scored 4/5 the day before</strong>. Cost barely moved; output volume did. The August lesson about prices turned out to apply to correctness too.</p>
-</li>
-<li>
-  <time>2026-08-27 → 08-29 · three days of nothing</time>
-  <h4>A usage limit with no reset time, and a blind five-hour sleep</h4>
-  <p>The runner hit a 429 whose message carried no parseable reset time and fell back to sleeping five hours — four times over, against a quota that came back inside the hour. Then the machine went down. The queue did not move for three days.</p>
-  <p>The fix is in the harness now: probe on a short ladder instead of guessing, because a failed probe costs about fifteen seconds and no tokens, which is strictly cheaper than one long guess.</p>
-</li>
-<li class="key">
-  <time>2026-08-29 · the decisive round</time>
-  <h4>v7 against v8, twenty samples each, same day</h4>
-  <p>At n=5 the two versions had looked like a tie (1/5 against 3/5, p=0.52). At n=20 per arm they did not: <strong>4/20 against 13/20</strong>, Fisher p=0.010, with v8 also 7% cheaper and 36% faster. One paragraph, rewritten from permission into obligation.</p>
-  <p>The same day turned up a row that would have quietly poisoned it: a cell logging one turn and 29 output tokens while passing the hidden suite 8/8. Its transcript held fifteen turns — the agent loop had restarted mid-cell and the summary JSON described only the last leg. It was caught by arithmetic: a row's cost and its own token counts must agree.</p>
-</li>
-<li>
-  <time>2026-08-30 · closing it out</time>
-  <h4>The last unknown, and the switch</h4>
-  <p>The real-project round finally got a same-day rival, which contradicted the one fear left about Lea: its median is <strong>$3.735</strong> against <code>full</code>'s <strong>$5.560</strong>. The same day measured what that round can and cannot say — <strong>n=37 per arm</strong> to resolve a 30% difference, so none of its rankings, this page's included, were ever real.</p>
-  <p>v8 was checked for a prose tax before being recommended (there is none), every report was rewritten, and the live hook was switched to v8. Measurement closed at 232 cells, 0 failed, 286 graded runs.</p>
-</li>
+  <li class="tl-key">
+    <time>2026-08-16 · the accident</time>
+    <h4>Two outages, and a question nobody could answer</h4>
+    <p>Skills stopped auto-loading. Two separate causes: every <code>SessionStart</code> hook shares one timeout window, so one slow hook cancels the whole batch — and <code>enabledPlugins</code> had drifted out of sync with <code>installed_plugins.json</code>. Both were fixed in an afternoon.</p>
+    <p>The uncomfortable part was the question that came out of it: eleven plugins were enabled, and nobody could say what any of them cost or whether it helped. That question is the whole project.</p>
+  </li>
+  <li>
+    <time>2026-08-17 · the audit</time>
+    <h4>Eleven plugins cut to three, then a harness to check the cut</h4>
+    <p>The token audit came first — measure what each plugin injects before you type anything — and it removed eight of eleven. But an audit only measures cost, never benefit, so the harness followed: five configurations, identical tasks, identical prompts, identical repository copies, and grading the agent cannot reach — a hidden test suite copied in after it exits.</p>
+  </li>
+  <li>
+    <time>2026-08-18 · the first answer</time>
+    <h4>A real project, one run per config — and a headline that did not survive</h4>
+    <p>Toy tasks answer toy questions, so each config was given a copy of a live seven-language site and told to improve it. The first result read <strong>"</strong><code>full</code><strong> is cheapest at $2.90, 60% of bare"</strong>. It was written down with an n=1 warning attached, and that warning turned out to be the only durable part of it.</p>
+  </li>
+  <li>
+    <time>2026-08-19 → 08-24 · the caveats fight back</time>
+    <h4>A second trap task, a second model, and n=3</h4>
+    <p>Quality had separated in exactly one round, so a second trap task (Paginator) was written specifically to reproduce that split. It failed to: every config passed. Then every round was re-run on Opus, where the quality difference vanished entirely and the cost ordering reversed in two cells.</p>
+    <p>The project round went to three samples per config. The $2.90 headline died there: four of five configs landed inside a 16% band while a single config's own runs ranged from $2.78 to $9.39.</p>
+  </li>
+  <li class="tl-key">
+    <time>2026-08-25 · the design</time>
+    <h4>Instead of picking a config, build one from the mechanisms</h4>
+    <p>The matrix had exposed three: prose savings come from shorter output, tool-work losses come from a fixed ruleset re-read every turn, and correctness tracks output volume during a contract audit. Lea was written against those three and taken from v1 to v7 in a day, re-measuring every round after every change — which is how the discovery landed that <em>where a sentence sits</em> in the ruleset moved the numbers more than the sentence did, four separate times.</p>
+    <p>The same day produced the rule that governs everything since: <strong>never compare a new run against a stored dollar figure.</strong> Re-running an unchanged baseline gave a different implied price than August's — the regime had moved underneath the whole table.</p>
+  </li>
+  <li>
+    <time>2026-08-26 · live, and a warning</time>
+    <h4>Lea goes live; the headline result fails to replicate</h4>
+    <p>Opus confirmed the mechanism (−42% prose, −53% on the hard fix at identical correctness), the live config was switched over, and a v8 candidate was drafted by <em>reading</em> the one failing run instead of guessing at it.</p>
+    <p>Then the same unchanged config was re-measured on the hard round and scored <strong>1/5 where it had scored 4/5 the day before</strong>. Cost barely moved; output volume did. The August lesson about prices turned out to apply to correctness too.</p>
+  </li>
+  <li>
+    <time>2026-08-27 → 08-29 · three days of nothing</time>
+    <h4>A usage limit with no reset time, and a blind five-hour sleep</h4>
+    <p>The runner hit a 429 whose message carried no parseable reset time and fell back to sleeping five hours — four times over, against a quota that came back inside the hour. Then the machine went down. The queue did not move for three days.</p>
+    <p>The fix is in the harness now: probe on a short ladder instead of guessing, because a failed probe costs about fifteen seconds and no tokens, which is strictly cheaper than one long guess.</p>
+  </li>
+  <li class="tl-key">
+    <time>2026-08-29 · the decisive round</time>
+    <h4>v7 against v8, twenty samples each, same day</h4>
+    <p>At n=5 the two versions had looked like a tie (1/5 against 3/5, p=0.52). At n=20 per arm they did not: <strong>4/20 against 13/20</strong>, Fisher p=0.010, with v8 also 7% cheaper and 36% faster. One paragraph, rewritten from permission into obligation.</p>
+    <p>The same day turned up a row that would have quietly poisoned it: a cell logging one turn and 29 output tokens while passing the hidden suite 8/8. Its transcript held fifteen turns — the agent loop had restarted mid-cell and the summary JSON described only the last leg. It was caught by arithmetic: a row's cost and its own token counts must agree.</p>
+  </li>
+  <li>
+    <time>2026-08-30 · closing it out</time>
+    <h4>The last unknown, and the switch</h4>
+    <p>The real-project round finally got a same-day rival, which contradicted the one fear left about Lea: its median is <strong>$3.735</strong> against <code>full</code>'s <strong>$5.560</strong>. The same day measured what that round can and cannot say — <strong>n=37 per arm</strong> to resolve a 30% difference, so none of its rankings were ever real.</p>
+    <p>v8 was checked for a prose tax before being recommended (there is none), every report was rewritten, and the live hook was switched to v8. Measurement closed at 232 cells, 0 failed, 286 graded runs.</p>
+  </li>
 </ol>
 
 <div class="note plain">
@@ -1046,69 +1043,68 @@ else's sample of the contract. Say what you checked. Explaining a concept in cha
 </div>
 
 <div data-lang="tr">
-<p class="lede">Proje bir benchmark olarak başlamadı. İki bozuk hook olarak başladı; sonraki her tur da, bir önceki cevabın güvenilmez çıkması yüzünden var.</p>
+<p class="lede">Proje bir benchmark olarak başlamadı; iki bozuk hook olarak başladı. Sonraki her tur da, bir önceki cevabın güvenilmez çıkması yüzünden var.</p>
 
 <ol class="tl">
-<li class="key">
-  <time>2026-08-16 · kaza</time>
-  <h4>İki arıza ve kimsenin cevaplayamadığı bir soru</h4>
-  <p>Skill'ler kendiliğinden yüklenmez oldu. İki ayrı sebep: bütün <code>SessionStart</code> hook'ları tek bir zaman aşımı penceresini paylaşıyor, yani yavaş bir hook bütün grubu iptal ediyor — ve <code>enabledPlugins</code> ile <code>installed_plugins.json</code> birbirinden kaymış. İkisi de bir öğleden sonrada düzeldi.</p>
-  <p>Rahatsız edici kısım ardından gelen soruydu: on bir plugin açıktı ve hiçbirinin ne kadara mal olduğunu ya da işe yarayıp yaramadığını kimse söyleyemiyordu. Bütün proje o soru.</p>
-</li>
-<li>
-  <time>2026-08-17 · denetim</time>
-  <h4>On bir plugin üçe indi, sonra bu kesintiyi sınayacak harness</h4>
-  <p>Önce token denetimi geldi — sen daha bir şey yazmadan her plugin'in ne yüklediğini ölç — ve on birin sekizini eledi. Ama denetim yalnızca maliyeti ölçer, faydayı asla; o yüzden harness onu izledi: beş yapılandırma, aynı görevler, aynı prompt'lar, aynı repo kopyaları ve ajanın erişemeyeceği bir notlama — o çıktıktan <em>sonra</em> kopyalanan gizli bir test suite'i.</p>
-  <p><span class="tag">tur 1–4, Sonnet</span></p>
-</li>
-<li>
-  <time>2026-08-18 · ilk cevap</time>
-  <h4>Gerçek bir proje, config başına tek koşu — ve yaşamayan bir başlık</h4>
-  <p>Oyuncak görevler oyuncak soruları cevaplar; o yüzden her config'e canlı, yedi dilli bir sitenin kopyası verilip "iyileştir" dendi. İlk sonuç şöyle okundu: <strong>"<code>full</code> en ucuzu, $2.90, bare'in %60'ı"</strong>. Yanına bir n=1 uyarısı iliştirilmişti ve o uyarı, cümlenin kalıcı olan tek parçası çıktı.</p>
-</li>
-<li>
-  <time>2026-08-19 → 08-24 · kısıtlar geri saldırıyor</time>
-  <h4>İkinci bir tuzak görev, ikinci bir model ve n=3</h4>
-  <p>Kalite tam olarak bir turda ayrışmıştı; o ayrımı tekrarlamak için özel bir ikinci tuzak görev (Paginator) yazıldı. Tekrarlayamadı: bütün configler geçti. Ardından her tur Opus'ta yeniden koşturuldu — kalite farkı tamamen kayboldu, maliyet sıralaması iki hücrede tersine döndü.</p>
-  <p>Proje turu config başına üç örneğe çıktı. $2.90 başlığı orada öldü: beş config'in dördü %16'lık bir bantta toplanırken tek bir config'in kendi koşuları $2.78 ile $9.39 arasında geziniyordu.</p>
-</li>
-<li class="key">
-  <time>2026-08-25 · tasarım</time>
-  <h4>Config seçmek yerine, mekanizmalardan bir tane kurmak</h4>
-  <p>Matris üç mekanizma açığa çıkarmıştı: metin tasarrufu kısalan çıktıdan gelir, araçlı iş kaybı her turda yeniden okunan sabit kural setinden gelir, doğruluk ise sözleşme denetimi sırasındaki çıktı hacmini izler. Lea bu üçüne karşı yazıldı ve bir günde v1'den v7'ye getirildi; her değişiklikten sonra her tur yeniden ölçüldü. Bir cümlenin <em>nerede durduğunun</em> cümlenin kendisinden daha çok fark yarattığı da böyle görüldü — dört ayrı kez.</p>
-  <p>Aynı gün bugüne kadar her şeyi yöneten kural doğdu: <strong>yeni bir koşuyu asla kayıtlı bir dolar rakamıyla karşılaştırma.</strong> Değiştirilmemiş bir baseline yeniden koşturulunca ağustostakinden farklı bir örtük fiyat verdi — rejim, tablonun altından kaymıştı.</p>
-  <p><span class="tag">135 hücrelik matris tamam</span></p>
-</li>
-<li>
-  <time>2026-08-26 · canlıya geçiş ve bir uyarı</time>
-  <h4>Lea canlıya alınıyor; başlık sonuç tekrarlanmıyor</h4>
-  <p>Opus mekanizmayı doğruladı (metinde −%42, zor fix'te aynı doğrulukla −%53), canlı yapılandırma Lea'ya geçirildi ve tek başarısız koşu <em>okunarak</em> — tahmin edilerek değil — bir v8 adayı yazıldı.</p>
-  <p>Sonra değiştirilmemiş aynı config zor turda yeniden ölçüldü ve <strong>bir gün önce 4/5 aldığı yerde 1/5</strong> aldı. Maliyet neredeyse hiç oynamadı; oynayan çıktı hacmiydi. Fiyatlar için öğrenilen ağustos dersi, doğruluk için de geçerliymiş.</p>
-</li>
-<li>
-  <time>2026-08-27 → 08-29 · üç gün hiçbir şey</time>
-  <h4>Reset saati olmayan bir kullanım limiti ve kör beş saatlik uyku</h4>
-  <p>Runner, mesajında ayrıştırılabilir bir reset saati taşımayan bir 429'a çarptı ve beş saat uyumaya geçti — üstelik dört kez, bir saat içinde geri gelen bir kota karşısında. Ardından makine kapandı. Kuyruk üç gün kımıldamadı.</p>
-  <p>Düzeltme artık harness'in içinde: tahmin etmek yerine kısa bir merdivende yokla; çünkü başarısız bir yoklama on beş saniye ve sıfır token, bu da tek bir uzun tahminden kesinlikle ucuz.</p>
-</li>
-<li class="key">
-  <time>2026-08-29 · belirleyici tur</time>
-  <h4>v7'ye karşı v8, kol başına yirmi örnek, aynı gün</h4>
-  <p>n=5'te iki sürüm berabere görünüyordu (1/5'e karşı 3/5, p=0,52). Kol başına n=20'de görünmediler: <strong>4/20'ye karşı 13/20</strong>, Fisher p=0,010; üstelik v8 %7 ucuz ve %36 hızlı. Tek bir paragraf, izinden yükümlülüğe yeniden yazıldı.</p>
-  <p>Aynı gün, bunu sessizce zehirleyecek bir satır da çıktı: 1 tur ve 29 output token yazan, ama gizli suite'i 8/8 geçen bir hücre. Transcript'inde on beş tur vardı — ajan döngüsü hücre ortasında yeniden başlamış, özet JSON yalnız son bacağı anlatmıştı. Aritmetikle yakalandı: bir satırın maliyeti ile kendi token sayıları birbirini tutmalı.</p>
-</li>
-<li>
-  <time>2026-08-30 · kapanış</time>
-  <h4>Son bilinmeyen ve geçiş</h4>
-  <p>Gerçek proje turu nihayet aynı gün ölçülmüş bir rakip kazandı ve Lea hakkındaki son korkuyu çürüttü: medyanı <strong>$3.735</strong>, <code>full</code>'ünki <strong>$5.560</strong>. Aynı gün, o turun ne söyleyip ne söyleyemeyeceği de ölçüldü — %30'luk bir farkı çözmek için <strong>kol başına n=37</strong>; yani ürettiği hiçbir sıralama, bu sayfadakiler dahil, hiçbir zaman gerçek değildi.</p>
-  <p>v8 önerilmeden önce metin vergisi ödeyip ödemediği sınandı (ödemiyor), bütün raporlar yeniden yazıldı ve canlı hook v8'e geçirildi. Ölçüm 232 hücre, 0 başarısız, 286 notlandırılmış koşuyla kapandı.</p>
-</li>
+  <li class="tl-key">
+    <time>2026-08-16 · kaza</time>
+    <h4>İki arıza ve kimsenin cevaplayamadığı bir soru</h4>
+    <p>Skill'ler kendiliğinden yüklenmez oldu. İki ayrı sebep: bütün <code>SessionStart</code> hook'ları tek bir zaman aşımı penceresini paylaşıyor, yani yavaş bir hook bütün grubu iptal ediyor — ve <code>enabledPlugins</code> ile <code>installed_plugins.json</code> birbirinden kaymış. İkisi de bir öğleden sonrada düzeldi.</p>
+    <p>Rahatsız edici kısım ardından gelen soruydu: on bir plugin açıktı ve hiçbirinin ne kadara mal olduğunu ya da işe yarayıp yaramadığını kimse söyleyemiyordu. Bütün proje o soru.</p>
+  </li>
+  <li>
+    <time>2026-08-17 · denetim</time>
+    <h4>On bir plugin üçe indi, sonra bu kesintiyi sınayacak harness</h4>
+    <p>Önce token denetimi geldi — sen bir şey yazmadan her plugin'in ne yüklediğini ölç — ve on birin sekizini eledi. Ama denetim yalnızca maliyeti ölçer, faydayı asla; o yüzden harness onu izledi: beş yapılandırma, aynı görevler, aynı prompt'lar, aynı repo kopyaları ve ajanın erişemeyeceği bir notlama — o çıktıktan <em>sonra</em> kopyalanan gizli bir test suite'i.</p>
+  </li>
+  <li>
+    <time>2026-08-18 · ilk cevap</time>
+    <h4>Gerçek bir proje, config başına tek koşu — ve yaşamayan bir başlık</h4>
+    <p>Oyuncak görevler oyuncak soruları cevaplar; o yüzden her config'e canlı, yedi dilli bir sitenin kopyası verilip "iyileştir" dendi. İlk sonuç şuydu: <strong>"full en ucuzu, $2.90, bare'in %60'ı"</strong>. Yanına bir n=1 uyarısı iliştirilmişti ve o uyarı, cümlenin kalıcı olan tek parçası çıktı.</p>
+  </li>
+  <li>
+    <time>2026-08-19 → 08-24 · kısıtlar geri saldırıyor</time>
+    <h4>İkinci bir tuzak görev, ikinci bir model ve n=3</h4>
+    <p>Kalite tam olarak bir turda ayrışmıştı; o ayrımı tekrarlamak için özel bir ikinci tuzak görev (Paginator) yazıldı. Tekrarlayamadı: bütün configler geçti. Ardından her tur Opus'ta yeniden koşturuldu — kalite farkı tamamen kayboldu, maliyet sıralaması iki hücrede tersine döndü.</p>
+    <p>Proje turu config başına üç örneğe çıktı ve $2.90 başlığı orada öldü: beş config'in dördü %16'lık bir bantta toplanırken tek bir config'in kendi koşuları $2.78 ile $9.39 arasında geziniyordu.</p>
+  </li>
+  <li class="tl-key">
+    <time>2026-08-25 · tasarım</time>
+    <h4>Config seçmek yerine, mekanizmalardan bir tane kurmak</h4>
+    <p>Matris üç mekanizma açığa çıkarmıştı: metin tasarrufu kısalan çıktıdan gelir, araçlı iş kaybı her turda yeniden okunan sabit kural setinden gelir, doğruluk ise sözleşme denetimi sırasındaki çıktı hacmini izler. Lea bu üçüne karşı yazıldı ve bir günde v1'den v7'ye getirildi; her değişiklikten sonra her tur yeniden ölçüldü. Bir cümlenin <em>nerede durduğunun</em> cümlenin kendisinden daha çok fark yarattığı da böyle görüldü — dört ayrı kez.</p>
+    <p>Aynı gün bugüne kadar her şeyi yöneten kural doğdu: <strong>yeni bir koşuyu asla kayıtlı bir dolar rakamıyla karşılaştırma.</strong> Değiştirilmemiş bir baseline yeniden koşturulunca ağustostakinden farklı bir örtük fiyat verdi — rejim, tablonun altından kaymıştı.</p>
+  </li>
+  <li>
+    <time>2026-08-26 · canlıya geçiş ve bir uyarı</time>
+    <h4>Lea canlıya alınıyor; başlık sonuç tekrarlanmıyor</h4>
+    <p>Opus mekanizmayı doğruladı (metinde −%42, zor fix'te aynı doğrulukla −%53), canlı yapılandırma Lea'ya geçirildi ve tek başarısız koşu <em>okunarak</em> — tahmin edilerek değil — bir v8 adayı yazıldı.</p>
+    <p>Sonra değiştirilmemiş aynı config zor turda yeniden ölçüldü ve <strong>bir gün önce 4/5 aldığı yerde 1/5</strong> aldı. Maliyet neredeyse hiç oynamadı; oynayan çıktı hacmiydi. Fiyatlar için öğrenilen ders, doğruluk için de geçerliymiş.</p>
+  </li>
+  <li>
+    <time>2026-08-27 → 08-29 · üç gün hiçbir şey</time>
+    <h4>Reset saati olmayan bir kullanım limiti ve kör beş saatlik uyku</h4>
+    <p>Runner, mesajında ayrıştırılabilir bir reset saati taşımayan bir 429'a çarptı ve beş saat uyumaya geçti — üstelik dört kez, bir saat içinde geri gelen bir kota karşısında. Ardından makine kapandı. Kuyruk üç gün kımıldamadı.</p>
+    <p>Düzeltme artık harness'in içinde: tahmin etmek yerine kısa bir merdivende yokla; başarısız bir yoklama on beş saniye ve sıfır token, bu da tek bir uzun tahminden kesinlikle ucuz.</p>
+  </li>
+  <li class="tl-key">
+    <time>2026-08-29 · belirleyici tur</time>
+    <h4>v7'ye karşı v8, kol başına yirmi örnek, aynı gün</h4>
+    <p>n=5'te iki sürüm berabere görünüyordu (1/5'e karşı 3/5, p=0,52). Kol başına n=20'de görünmediler: <strong>4/20'ye karşı 13/20</strong>, Fisher p=0,010; üstelik v8 %7 ucuz ve %36 hızlı. Tek bir paragraf, izinden yükümlülüğe yeniden yazıldı.</p>
+    <p>Aynı gün, bunu sessizce zehirleyecek bir satır da çıktı: 1 tur ve 29 output token yazan, ama gizli suite'i 8/8 geçen bir hücre. Transcript'inde on beş tur vardı — ajan döngüsü hücre ortasında yeniden başlamış, özet JSON yalnız son bacağı anlatmıştı. Aritmetikle yakalandı: bir satırın maliyeti ile kendi token sayıları birbirini tutmalı.</p>
+  </li>
+  <li>
+    <time>2026-08-30 · kapanış</time>
+    <h4>Son bilinmeyen ve geçiş</h4>
+    <p>Gerçek proje turu nihayet aynı gün ölçülmüş bir rakip kazandı ve Lea hakkındaki son korkuyu çürüttü: medyanı <strong>$3.735</strong>, <code>full</code>'ünki <strong>$5.560</strong>. Aynı gün, o turun ne söyleyip ne söyleyemeyeceği de ölçüldü — %30'luk bir farkı çözmek için <strong>kol başına n=37</strong>; yani ürettiği hiçbir sıralama, hiçbir zaman gerçek değildi.</p>
+    <p>v8 önerilmeden önce metin vergisi ödeyip ödemediği sınandı (ödemiyor), bütün raporlar yeniden yazıldı ve canlı hook v8'e geçirildi. Ölçüm 232 hücre, 0 başarısız, 286 notlandırılmış koşuyla kapandı.</p>
+  </li>
 </ol>
 
 <div class="note plain">
-<p><strong>Bunun biçimi.</strong> Yukarıdaki dokuz maddenin beşi, önceki bir sonucun geri çekilmesi: $2.90 başlığı, kalite sıralaması, zor turdaki 4/5, meseleyi çözmesi beklenen tuzak görev ve proje turunun ürettiği her sıralama. Hayatta kalan şey sayılar değil, onları öldüren kurallar: baseline'ı aynı gün ölç, tek güne dayanan kalite rakamına güvenme, ve bir satıra kendi maliyetini kanıtlat.</p>
+<p><strong>Bunun biçimi.</strong> Yukarıdaki dokuz maddenin beşi, önceki bir sonucun geri çekilmesi: $2.90 başlığı, kalite sıralaması, zor turdaki 4/5, meseleyi çözmesi beklenen tuzak görev ve proje turunun ürettiği her sıralama. Hayatta kalan şey sayılar değil, onları öldüren kurallar — baseline'ı aynı gün ölç, tek güne dayanan kalite rakamına güvenme, ve bir satıra kendi maliyetini kanıtlat.</p>
 </div>
 </div>
+<!-- TIMELINE:END -->
 
 <!-- ============ METHOD ============ -->
 <h2 id="method"><span data-lang="en">Method notes worth reusing</span><span data-lang="tr">Tekrar kullanmaya değer yöntem notları</span></h2>
