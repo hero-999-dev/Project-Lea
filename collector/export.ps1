@@ -83,6 +83,8 @@ $cfg = Get-Content (Join-Path $shadow 'config.json') -Raw | ConvertFrom-Json
 @{
     machine       = $env:COMPUTERNAME
     user          = $env:USERNAME
+    account       = $cfg.account_label
+    installs_on_account = $cfg.installs_on_this_account
     exported_at   = (Get-Date).ToString('o')
     since         = $Since
     shadow_rows   = $shadowRows

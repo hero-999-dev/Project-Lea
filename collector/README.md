@@ -55,6 +55,23 @@ A second Windows user on the same machine needs the Claude Code CLI installed **
 one user's profile is not readable by another. The installer checks for it and names it if it is
 missing.
 
+### Four installs, two accounts - what to type
+
+Label each install with the account it signs in with, and say how many installs share that
+account. The installer divides the budgets for you and writes the label into every export, so
+the pooled data can tell rows that competed for one window from rows that did not.
+
+```powershell
+# machine 1, user 1  and  machine 2, user 1   -> account A
+pwsh -File install.ps1 -Account A -InstallsOnThisAccount 2
+
+# machine 1, user 2  and  machine 2, user 2   -> account B
+pwsh -File install.ps1 -Account B -InstallsOnThisAccount 2
+```
+
+Each of the four then runs on window $1.50 / day $3 / opus $1 / sonnet $0.50 - two per account,
+so each account still gives up about a fifth of one window in total.
+
 ## Getting the files onto the machine
 
 The repository is private, so the clone needs the same GitHub account:

@@ -55,6 +55,23 @@ Aynı makinedeki ikinci bir Windows kullanıcısı için Claude Code CLI'ın **o
 olması gerekir — bir kullanıcının profili diğeri tarafından okunamaz. Kurulum bunu kontrol eder
 ve eksikse adıyla söyler.
 
+### Dört kurulum, iki hesap - ne yazacaksın
+
+Her kurulumu giriş yaptığı hesabın adıyla etiketle ve o hesabı kaç kurulumun paylaştığını söyle.
+Kurulum bütçeleri senin yerine böler ve etiketi her export'a yazar; böylece havuzda aynı pencere
+için yarışan satırlarla yarışmayanlar ayırt edilebilir.
+
+```powershell
+# makine 1, kullanıcı 1  ve  makine 2, kullanıcı 1   -> hesap A
+pwsh -File install.ps1 -Account A -InstallsOnThisAccount 2
+
+# makine 1, kullanıcı 2  ve  makine 2, kullanıcı 2   -> hesap B
+pwsh -File install.ps1 -Account B -InstallsOnThisAccount 2
+```
+
+Dördü de pencere $1.50 / gün $3 / opus $1 / sonnet $0.50 ile koşar — hesap başına iki kurulum,
+yani her hesap toplamda yine bir pencerenin beşte biri kadarını veriyor.
+
 ## Dosyaları makineye almak
 
 Repo private, yani klonlama aynı GitHub hesabını gerektirir:

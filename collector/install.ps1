@@ -9,9 +9,22 @@
 #
 # Nothing is sent anywhere. Data leaves this machine only when you run export.ps1 yourself.
 #
-# Usage:  pwsh -NoProfile -File install.ps1 [-SkipLea] [-Force]
+# Usage:  pwsh -NoProfile -File install.ps1 [-Account <label>] [-InstallsOnThisAccount <n>]
+#                                           [-SkipLea] [-Force]
+#
+# Example - four installs, two Claude accounts, two each:
+#   pwsh -File install.ps1 -Account A -InstallsOnThisAccount 2
 
 param(
+    # A name for the Claude account this install signs in with - "A", "work", anything, as long
+    # as the same account gets the same label everywhere. It is a label, never a credential.
+    # Installs that share an account share a usage window, and the pooled data is unreadable
+    # without knowing which rows were competing for the same one.
+    [string]$Account = '',
+    # How many installs will run on that account, including this one. The budgets are divided by
+    # it, because they are per install and blind to each other: three installs on one account
+    # otherwise take three times the intended share of one window.
+    [int]$InstallsOnThisAccount = 1,
     # Keep whatever SessionStart configuration is already there instead of installing Lea.
     # The comparison is Lea against a stock config, so without Lea the ledger measures
     # something else - useful only if you know that is what you want.
@@ -72,6 +85,25 @@ if ((Test-Path $cfgPath) -and -not $Force) {
 }
 else {
     Copy-Item (Join-Path $payload 'config.json') $cfgPath -Force
+    $conf = Get-Content $cfgPath -Raw | ConvertFrom-Json
+    $conf | Add-Member -NotePropertyName account_label -NotePropertyValue $Account -Force
+    $conf | Add-Member -NotePropertyName installs_on_this_account `
+                       -NotePropertyValue $InstallsOnThisAccount -Force
+    if ($InstallsOnThisAccount -gt 1) {
+        $n = [double]$InstallsOnThisAccount
+        $conf.window_budget_usd = [math]::Round($conf.window_budget_usd / $n, 2)
+        $conf.daily_budget_usd = [math]::Round($conf.daily_budget_usd / $n, 2)
+        foreach ($m in @($conf.window_budget_by_model.PSObject.Properties.Name)) {
+            $conf.window_budget_by_model.$m = [math]::Round($conf.window_budget_by_model.$m / $n, 2)
+        }
+        # ${...} because PowerShell reads "$name:" as a scope qualifier, not a variable.
+        Say "  budgets divided by ${InstallsOnThisAccount}: window `$$($conf.window_budget_usd), day `$$($conf.daily_budget_usd)" Green
+    }
+    $conf | ConvertTo-Json -Depth 10 | Set-Content $cfgPath -Encoding utf8
+}
+if (-not $Account) {
+    Say '  no -Account label given. Fine for a single install; with more than one, label them' Yellow
+    Say '  so the pooled data can tell which rows shared a usage window.' Yellow
 }
 Set-Content -Path (Join-Path $claudeDir 'shadow-dir.txt') -Value $shadowDir -Encoding utf8 -NoNewline
 Say "  files installed into $shadowDir" Green
