@@ -1,29 +1,27 @@
-# KURULUM — bir Claude Code oturumu için talimatlar
+# KURULUM — Lea
 
-> Kendi Claude Code oturumuna bu dosyayı göster (`INSTALL.tr.md dosyasını oku ve bunu bana
-> kur`), kurulumun tamamını yapabilir. Aynı adımlar elle de takip edilebilir.
+> Kendi Claude Code oturumuna bu dosyayı göster (`INSTALL.tr.md dosyasını oku ve Lea'yı bana kur`),
+> kurulumun tamamını yapabilir. Aynı adımlar elle de takip edilebilir.
 >
 > English: [`INSTALL.md`](INSTALL.md)
 
-**Herhangi bir şey çalıştırmadan önce dosyanın tamamını oku.** Adım 0 bir komut değil, bir karar.
+**Kurulan şey tek bir dosya.** Plugin yok, marketplace yok, indirilecek bağımlılık yok. Lea bir
+`SessionStart` hook'u: her oturumun başında ~180 token'lık bir kural seti yüklüyor.
 
----
+Neden bu ve neden diğerleri değil: 220 koşuluk benchmark beş yapılandırmayı ölçtü ve hiçbiri her
+iş tipinde kazanmadı. Lea o ölçümlerin gösterdiği mekanizmalardan tasarlandı ve beş test turunun
+beşinde de o turun en iyi rakibine karşı ölçüldü. Rakamlar
+[`guide/benchmarks.tr.md`](guide/benchmarks.tr.md) ve rapor sayfasında.
 
-## Adım 0 — Gerçekte ne istediğine karar ver
+| test turu | Lea | o turun en iyi rakibi | fark |
+|---|---|---|---|
+| metin, tool yok | 0.0626 | `modes` 0.0577 | berabere |
+| kolay bug fix | 0.0828, 3/3 doğru | `bare` 0.0957 | −%13 |
+| zor bug fix | 0.0897, **4/5 doğru** | `superpowers` 0.1244, 1/5 | −%28, 4× doğru |
+| sıfırdan web sitesi | 0.0757, 3 kez 7/7 | `bare` 0.0911 | −%17 |
+| zor bug fix #2 | 0.0815, 3/3 doğru | `bare` 0.0799 | +%2, berabere |
 
-Bu kurulumun birbirinden bağımsız üç parçası var. Kurulmaya değerlikleri eşit değil ve
-[`guide/benchmarks.tr.md`](guide/benchmarks.tr.md) içindeki benchmark verisi bunu söylüyor:
-
-| Parça | Kur, eğer | Atla, eğer |
-|---|---|---|
-| `superpowers` plugin'i | CLI'da çok adımlı kodlama işi yapıyorsan | yalnızca kısa sohbet promptları kullanıyorsan |
-| `verification-activate.js` hook'u | kendinden emin ama yanlış bir "bitti" seni yaktıysa | mümkün olan en ucuz oturumları istiyorsan |
-| `caveman` + `ponytail` plugin'leri | kullanımının çoğu uzun metin/açıklama ise | kullanımının çoğu agentic kodlama ise — zor bir bug fix'te **0/5** doğru ölçtüler |
-| `lean-context` hook'u + skill'i | `markitdown`, `trafilatura`, `duckdb`, `repomix` kuruluysa | kurulu değilse — hook sessizce çıkar, ama skill'in tavsiyesi işe yaramaz olur |
-
-Herhangi bir dosyayı düzenlemeden önce kullanıcıya bunlardan hangilerini istediğini sor.
-Kodlama ağırlıklı bir kullanıcı için varsayılan öneri: **superpowers + verification hook'u,
-caveman/ponytail olmadan.**
+Hepsi Sonnet, 25 Ağustos 2026, rakipler aynı gün yeniden ölçüldü.
 
 ---
 
@@ -31,173 +29,129 @@ caveman/ponytail olmadan.**
 
 ```bash
 claude --version   # Claude Code CLI kurulu olmalı
-node --version     # iki hook da Node scripti
+node --version     # hook bir Node scripti
 ```
 
-`node` yoksa önce Node.js kur ya da hook'ları tamamen atla (adım 4–5).
+`node` yoksa önce Node.js kur. Lea'nın başka bağımlılığı yok.
 
 ---
 
 ## Adım 2 — Mevcut ayarları yedekle
 
-`settings.json` dosyasını orijinalinin bir kopyası olmadan asla düzenleme.
-
-**macOS / Linux**
 ```bash
-cp ~/.claude/settings.json ~/.claude/settings.json.bak 2>/dev/null || echo "mevcut settings.json yok"
+mkdir -p ~/.claude/backups/lea-kurulum
+cp ~/.claude/settings.json ~/.claude/backups/lea-kurulum/settings.json
 ```
 
-**Windows PowerShell**
+Windows PowerShell'de:
+
 ```powershell
-Copy-Item "$env:USERPROFILE\.claude\settings.json" "$env:USERPROFILE\.claude\settings.json.bak" -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force ~\.claude\backups\lea-kurulum | Out-Null
+Copy-Item ~\.claude\settings.json ~\.claude\backups\lea-kurulum\settings.json -Force
 ```
 
----
-
-## Adım 3 — Config'i birleştir
-
-[`config/settings.json`](config/settings.json) dosyasını aç ve `~/.claude/settings.json`
-içine birleştir.
-
-**Birleştir, üzerine yazma.** Hedef dosyada halihazırda `permissions`, `model`, `statusLine`,
-MCP config'i veya korunması gereken başka hook'lar olabilir.
-
-Sonra birleştirilmiş dosyada:
-
-1. `_comment` anahtarını sil.
-2. Her `ABSOLUTE_PATH_TO_HOME` yerine gerçek home dizinini yaz. Hook `command` string'leri
-   shell tarafından genişletilmez — `~`, `$HOME` ve `%USERPROFILE%` orada çalışmaz. Düz bir
-   yol kullan, örn. `/home/ali` veya `C:/Users/ali`.
-3. Adım 0'da `caveman`/`ponytail`'e hayır dediysen, ikisini de `enabledPlugins` içinde `false`
-   yap ve `extraKnownMarketplaces` girdilerini sil.
-4. Dört dönüştürücü CLI'ı kurmayacaksan `permissions` ve `skillOverrides` bloklarını sil.
-5. `"model": "opus"` bir tercih — değiştir veya kaldır.
+`settings.json` yoksa bu adımı atla; adım 4 dosyayı sıfırdan yazar.
 
 ---
 
-## Adım 4 — Hook'ları kopyala
+## Adım 3 — Hook dosyasını kopyala
 
-[`config/hooks/`](config/hooks/) içeriğini `~/.claude/hooks/` içine kopyala.
-
-**macOS / Linux**
 ```bash
 mkdir -p ~/.claude/hooks
-cp config/hooks/*.js ~/.claude/hooks/
+cp config/hooks/lea.js ~/.claude/hooks/lea.js
+node ~/.claude/hooks/lea.js | head -1     # "LEA ACTIVE ..." yazmalı
 ```
 
-**Windows PowerShell**
-```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\hooks" | Out-Null
-Copy-Item config\hooks\*.js "$env:USERPROFILE\.claude\hooks\"
-```
-
-Her iki hook'u da istemiyorsan bu adımı atla — ve atlıyorsan adım 3'te birleştirdiğin `hooks`
-bloğunu da sil, yoksa her oturum scriptleri bulamayarak başlar.
+Son satır bir şey yazdırmıyorsa hook bozuk demektir; devam etme.
 
 ---
 
-## Adım 5 — `lean-context` skill'ini kopyala (yalnızca o hook'u aldıysan)
+## Adım 4 — `settings.json` içine hook'u ekle
 
-**macOS / Linux**
-```bash
-mkdir -p ~/.claude/skills/lean-context
-cp config/skills/lean-context/SKILL.md ~/.claude/skills/lean-context/
+Mevcut `settings.json` dosyana **birleştir** — üzerine yazma. `SessionStart` bloğu zaten varsa
+Lea'yı o bloğun `hooks` dizisine bir eleman olarak ekle.
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/home/<kullanıcı>/.claude/hooks/lea.js\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
-**Windows PowerShell**
-```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills\lean-context" | Out-Null
-Copy-Item config\skills\lean-context\SKILL.md "$env:USERPROFILE\.claude\skills\lean-context\"
+Windows'ta komut şöyle olur (JSON içinde ters bölü çiftlenir):
+
+```json
+"command": "node \"C:\\Users\\<kullanıcı>\\.claude\\hooks\\lea.js\""
 ```
 
-`lean-context-activate.js` bu dosyayı her oturum başında okur. Dosya yoksa hook sessizce 0 ile
-çıkar ve hiçbir şey bozulmaz.
+`<kullanıcı>` yerine gerçek kullanıcı adını yaz. Göreli yol ya da `~` çalışmaz.
 
 ---
 
-## Adım 6 — CLI'ı yeniden başlat
+## Adım 5 — CLI'ı yeniden başlat
 
-Plugin açma/kapama ve `SessionStart` hook'ları yalnızca yeni bir süreçte etkili olur.
-Kapatılmış bir plugin'in hook'ları o ana kadar çalışmaya devam eder.
-
-Bundan sonraki ilk başlangıç yavaş olacak: CLI her plugin'i indirip
-`~/.claude/plugins/cache/` altına önbelleğe alır.
+Hook yalnızca oturum açılışında okunur. Çalışan oturumlar eski hâlini taşımaya devam eder.
 
 ---
 
-## Adım 7 — Doğrula (atlama)
+## Adım 6 — Doğrula (atlama)
 
-```bash
-claude plugin list
+Yeni bir oturum aç. İlk sistem bağlamında şu satır görünmeli:
+
+```
+LEA ACTIVE - always on. Terse prose, unlimited analysis.
 ```
 
-Beklenen: seçtiğin plugin'ler `✔ enabled`, gerisi `✘ disabled`.
+Görünmüyorsa: `settings.json` geçerli JSON mu, `command` içindeki yol mutlak mı, dosya gerçekten
+o yolda mı — üçünü sırayla kontrol et.
 
-Sonra bir oturum başlat ve şunları doğrula:
+---
 
-1. Hook başlıkları oturum bağlamının en üstünde görünüyor — `VERIFICATION-BEFORE-COMPLETION
-   ACTIVE` ve/veya `LEAN-CONTEXT ACTIVE`.
-2. Agent listesi `caveman:AGENTS` veya `caveman:CLAUDE` **içermiyor** (bkz. sorun giderme).
-3. `/skills` beklediğin skill'leri listeliyor.
+## Kurulmayan şeyler ve nedeni
 
-Modlar aktifleşmediyse sorun gidermeye geç — kurulumu körlemesine tekrarlama.
+Bu rehber `caveman`, `ponytail` ve `superpowers` plugin'lerini **kurmuyor**. Ölçüm, üçünün birlikte
+yaptığı işi Lea'nın çoğu turda daha ucuza yaptığını söylüyor: üç plugin yaklaşık 6.000 token'lık
+kural seti yüklüyor ve bu metin araçlı bir görevin 6–9 turunun her birinde yeniden okunuyor;
+Lea'nınki ~180 token.
+
+**Zaten kuruluysalar Lea ile birlikte çalıştırma.** Kural setleri üst üste biner, çelişen talimatlar
+oluşur ve ölçülen kazanç kaybolur. Önce `~/.claude/settings.json` içinde `enabledPlugins` altındaki
+`caveman`, `ponytail`, `superpowers` girdilerini `false` yap, sonra CLI'ı yeniden başlat.
+
+İki eski hook (`verification-activate.js`, `lean-context-activate.js`) Lea ile çakışmaz ama
+ölçümde `hooks` yapılandırması araçlı işte `bare`'e göre pahalıydı ve web turunda tek koşuda
+maliyeti 4.4 katına çıkardı. İstersen bırak, ama Lea'nın rakamları onlar olmadan ölçüldü.
 
 ---
 
 ## Sorun giderme
 
-**Hiçbir şey aktifleşmedi. Hook başlığı yok, caveman yok, ponytail yok.**
-`SessionStart` hook'ları tek bir timeout penceresi paylaşır: süre dolduğunda tüm grup iptal
-edilir ve hiçbir hook çıktısı enjekte edilmez — yani yavaş tek bir hook diğerlerinin hepsini
-sessizce öldürür. Oturum transcript'inde
-(`~/.claude/projects/<slug>/<session-id>.jsonl`) `hook_cancelled` ile `hook_success` ara.
-`SessionStart` hook'una asla PowerShell scripti koyma; `powershell.exe` soğuk başlangıcı tek
-başına ~2–3 sn. Node ~200 ms'de açılıyor.
-
-**`claude plugin list`, skill'leri açıkça yüklenen bir plugin'i göstermiyor.**
-`settings.json` içindeki `enabledPlugins`,
-`~/.claude/plugins/installed_plugins.json` ile senkronunu kaybetmiş. Çözüm:
-`claude plugin install <plugin>@<marketplace> -y`.
-
-**Plugin kurulu ama eski sürüm gibi davranıyor.**
-Eski bir elle kurulumdan kalan `~/.claude/skills/<ad>/SKILL.md`, plugin kopyasını gölgeliyor.
-`~/.claude/plugins/cache/<marketplace>/<plugin>/<sürüm>/skills/<ad>/SKILL.md` ile `diff`'le,
-sonra başıboş olanı sil veya üzerine yaz.
-
-**Agent listesinde hayalet `caveman:AGENTS` / `caveman:CLAUDE`, hepsi tüm tool'larla
-spawn edilebilir.**
-Bunlar plugin'in katkı dokümanlarının agent tanımı olarak okunması. Yeniden adlandır:
-
-```bash
-cd ~/.claude/plugins/cache/caveman/caveman/*/agents/
-mv AGENTS.md AGENTS.doc.txt
-mv CLAUDE.md CLAUDE.doc.txt
-```
-
-Bu bir cache düzenlemesi — plugin güncellemesi dosyaları geri getirir, her güncellemeden sonra
-tekrar kontrol et.
-
-**`skillOverrides` hiçbir etki yapmıyor.**
-Plugin skill'lerini gizleyemez; çözümleyici, plugin kaynaklı skill'leri ayar hiç
-danışılmadan `"on"` değerine kısa devre yapar. Yalnızca `~/.claude/skills/` altındaki kendi
-skill'lerinde çalışır. Bir plugin skill'i üzerindeki tek kaldıraç plugin'in tamamını kapatmak.
-
-**Scriptli `claude -p` koşuları düz metin olarak dönüyor ve her tool çağrısı reddediliyor
-(Windows).**
-`PATH` üzerindeki `claude` bir `claude.cmd` batch shim'i olabilir; `cmd.exe` komut satırını bir
-argümanın içindeki ilk satır sonunda keser, yani çok satırlı bir `-p` promptu kendisinden
-sonraki tüm bayrakları sessizce düşürür. Scriptlerden doğrudan
-`<home>/.local/bin/claude.exe` dosyasını çağır.
+| Belirti | Sebep | Çözüm |
+|---|---|---|
+| Oturumda `LEA ACTIVE` yok | hook hiç çalışmadı | `settings.json` JSON olarak geçerli mi (`node -e "JSON.parse(require('fs').readFileSync('$HOME/.claude/settings.json'))"`), yol mutlak mı |
+| `node: not found` benzeri hata | PATH'te node yok | `command` içinde node'un tam yolunu yaz |
+| Cevaplar hâlâ uzun | eski oturum | CLI'ı yeniden başlat; hook oturum ortasında yüklenmez |
+| Cevaplar aşırı kısa, analiz de kesiliyor | başka bir kısaltma kuralı da açık | `caveman`/`ponytail` kapalı mı diye bak — Lea'nın analiz istisnası onların kuralıyla çakışır |
 
 ---
 
 ## Kaldırma
 
 ```bash
-# adım 2'deki yedeği geri yükle
-cp ~/.claude/settings.json.bak ~/.claude/settings.json
-rm ~/.claude/hooks/verification-activate.js ~/.claude/hooks/lean-context-activate.js
-rm -rf ~/.claude/skills/lean-context
+cp ~/.claude/backups/lea-kurulum/settings.json ~/.claude/settings.json
+rm ~/.claude/hooks/lea.js
 ```
 
 Sonra CLI'ı yeniden başlat.
@@ -206,6 +160,6 @@ Sonra CLI'ı yeniden başlat.
 
 ## Tam dokümantasyon
 
-- [`guide/setup-guide.tr.md`](guide/setup-guide.tr.md) — her parça ne yapıyor, kapatılan her
-  plugin neden kapatıldı
-- [`guide/benchmarks.tr.md`](guide/benchmarks.tr.md) — önerilerin arkasındaki dört ölçülmüş tur
+- Lea'nın tasarımı, sürüm günlüğü ve beş test sonucu: rapor sayfası (`rapor-lea.html`)
+- Ölçüm yöntemi ve beş yapılandırmanın karşılaştırması: [`guide/benchmarks.tr.md`](guide/benchmarks.tr.md)
+- Kurulum notlarının uzun hâli: [`guide/setup-guide.tr.md`](guide/setup-guide.tr.md)

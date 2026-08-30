@@ -1,9 +1,11 @@
-# Claude Code Setup Lab
+# Project Lea
 
-A tuned Claude Code CLI configuration, the failure modes behind it, and a four-round
-benchmark measuring what each plugin and hook actually costs — and what it buys.
+Lea is a 226-word SessionStart hook for Claude Code, designed from benchmark data rather
+than taste: it replaces a stack of plugins with one file. This repository is the hook, the
+install guide, and the measurements it was built from — five task types, 286 graded runs on
+Sonnet and Opus, plus a round on a real production site.
 
-**📖 Read it as a website → https://hero-999-dev.github.io/claude-code-setup-lab/**
+**📖 Read it as a website → https://hero-999-dev.github.io/Project-Lea/**
 **📦 Full report as a downloadable archive →** [Releases](../../releases/latest)
 
 Everything here is bilingual: **English** and **Türkçe**.
@@ -54,8 +56,8 @@ Two non-obvious findings that will save you time regardless of which plugins you
 ## Quick start
 
 ```bash
-git clone https://github.com/hero-999-dev/claude-code-setup-lab.git
-cd claude-code-setup-lab
+git clone https://github.com/hero-999-dev/Project-Lea.git
+cd Project-Lea
 ```
 
 Then either read [`INSTALL.md`](INSTALL.md) yourself, or start a Claude Code session in the

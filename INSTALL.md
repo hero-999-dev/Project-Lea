@@ -1,28 +1,27 @@
-# INSTALL — instructions for a Claude Code session
+# INSTALL — Lea
 
-> Point your own Claude Code session at this file (`read INSTALL.md and set this up for me`)
-> and it can perform the whole installation. A human can follow the same steps by hand.
+> Hand this file to your own Claude Code session (`read INSTALL.md and install Lea for me`) and it
+> can do the whole thing. The same steps work by hand.
 >
 > Türkçe: [`INSTALL.tr.md`](INSTALL.tr.md)
 
-**Read this whole file before running anything.** Step 0 is a decision, not a command.
+**What gets installed is one file.** No plugins, no marketplace, nothing to download. Lea is a
+`SessionStart` hook that loads a ~180-token rule set at the start of every session.
 
----
+Why this and not the plugins: a 220-run benchmark measured five configurations and none of them won
+across every kind of work. Lea was designed from the mechanisms those runs exposed, then measured
+against the best rival in each of five test rounds. Numbers in
+[`guide/benchmarks.en.md`](guide/benchmarks.en.md) and on the report page.
 
-## Step 0 — Decide what you actually want
+| test round | Lea | best rival that day | delta |
+|---|---|---|---|
+| prose, no tools | 0.0626 | `modes` 0.0577 | tie |
+| easy bug fix | 0.0828, 3/3 correct | `bare` 0.0957 | −13% |
+| hard bug fix | 0.0897, **4/5 correct** | `superpowers` 0.1244, 1/5 | −28%, 4× the correct fixes |
+| website build | 0.0757, 7/7 three times | `bare` 0.0911 | −17% |
+| hard bug fix #2 | 0.0815, 3/3 correct | `bare` 0.0799 | +2%, a tie |
 
-This setup has three independent parts. They are not equally worth installing, and the
-benchmark data in [`guide/benchmarks.en.md`](guide/benchmarks.en.md) says so:
-
-| Part | Install it if | Skip it if |
-|---|---|---|
-| `superpowers` plugin | you do multi-step coding work in the CLI | you only use short chat prompts |
-| `verification-activate.js` hook | you have been burned by a confident wrong "done" | you want the cheapest possible sessions |
-| `caveman` + `ponytail` plugins | most of your usage is long-form prose/explanations | most of your usage is agentic coding — they measured **0/5** correct on a hard bug fix |
-| `lean-context` hook + skill | you have `markitdown`, `trafilatura`, `duckdb`, `repomix` installed | you do not — the hook exits silently, but the skill's advice would be useless |
-
-Ask the user which of these they want before editing anything. The default recommendation
-for a coding-heavy user is: **superpowers + the verification hook, without caveman/ponytail.**
+All Sonnet, 2026-08-25, rivals re-measured the same day.
 
 ---
 
@@ -30,169 +29,130 @@ for a coding-heavy user is: **superpowers + the verification hook, without cavem
 
 ```bash
 claude --version   # Claude Code CLI must be installed
-node --version     # the two hooks are Node scripts
+node --version     # the hook is a Node script
 ```
 
-If `node` is missing, install Node.js first or skip the hooks entirely (steps 4–5).
+If `node` is missing, install Node.js first. Lea has no other dependency.
 
 ---
 
-## Step 2 — Back up the existing settings
+## Step 2 — Back up your settings
 
-Never edit `settings.json` without a copy of the original.
-
-**macOS / Linux**
 ```bash
-cp ~/.claude/settings.json ~/.claude/settings.json.bak 2>/dev/null || echo "no existing settings.json"
+mkdir -p ~/.claude/backups/lea-install
+cp ~/.claude/settings.json ~/.claude/backups/lea-install/settings.json
 ```
 
-**Windows PowerShell**
+On Windows PowerShell:
+
 ```powershell
-Copy-Item "$env:USERPROFILE\.claude\settings.json" "$env:USERPROFILE\.claude\settings.json.bak" -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Force ~\.claude\backups\lea-install | Out-Null
+Copy-Item ~\.claude\settings.json ~\.claude\backups\lea-install\settings.json -Force
 ```
 
----
-
-## Step 3 — Merge the config
-
-Open [`config/settings.json`](config/settings.json) and merge it into `~/.claude/settings.json`.
-
-**Merge, do not overwrite.** The target file may already contain `permissions`, `model`,
-`statusLine`, MCP config, or other hooks that must survive.
-
-Then, in the merged file:
-
-1. Delete the `_comment` key.
-2. Replace every `ABSOLUTE_PATH_TO_HOME` with the real home directory. Hook `command` strings
-   are **not** shell-expanded — `~`, `$HOME`, and `%USERPROFILE%` do not work there. Use a
-   literal path, e.g. `/home/alice` or `C:/Users/alice`.
-3. If you decided against `caveman`/`ponytail` in step 0, set both to `false` in
-   `enabledPlugins` and delete their `extraKnownMarketplaces` entries.
-4. If you are not installing the four converter CLIs, delete the `permissions` block and the
-   `skillOverrides` block.
-5. `"model": "opus"` is a preference — change or remove it.
+If there is no `settings.json`, skip this — step 4 writes one.
 
 ---
 
-## Step 4 — Copy the hooks
+## Step 3 — Copy the hook
 
-Copy the contents of [`config/hooks/`](config/hooks/) into `~/.claude/hooks/`.
-
-**macOS / Linux**
 ```bash
 mkdir -p ~/.claude/hooks
-cp config/hooks/*.js ~/.claude/hooks/
+cp config/hooks/lea.js ~/.claude/hooks/lea.js
+node ~/.claude/hooks/lea.js | head -1     # must print "LEA ACTIVE ..."
 ```
 
-**Windows PowerShell**
-```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\hooks" | Out-Null
-Copy-Item config\hooks\*.js "$env:USERPROFILE\.claude\hooks\"
-```
-
-Skip this step if you declined both hooks — and if you skip it, also delete the `hooks`
-block you merged in step 3, or every session will start by failing to find the scripts.
+If that last line prints nothing, the hook is broken — stop here.
 
 ---
 
-## Step 5 — Copy the `lean-context` skill (only if you took that hook)
+## Step 4 — Add the hook to `settings.json`
 
-**macOS / Linux**
-```bash
-mkdir -p ~/.claude/skills/lean-context
-cp config/skills/lean-context/SKILL.md ~/.claude/skills/lean-context/
+**Merge** into your existing `settings.json`, do not overwrite it. If a `SessionStart` block is
+already there, add Lea as one more entry in its `hooks` array.
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/home/<user>/.claude/hooks/lea.js\"",
+            "timeout": 20
+          }
+        ]
+      }
+    ]
+  }
+}
 ```
 
-**Windows PowerShell**
-```powershell
-New-Item -ItemType Directory -Force "$env:USERPROFILE\.claude\skills\lean-context" | Out-Null
-Copy-Item config\skills\lean-context\SKILL.md "$env:USERPROFILE\.claude\skills\lean-context\"
+On Windows the command reads (backslashes are doubled inside JSON):
+
+```json
+"command": "node \"C:\\Users\\<user>\\.claude\\hooks\\lea.js\""
 ```
 
-`lean-context-activate.js` reads this file at every session start. Without it the hook exits
-0 silently and nothing breaks.
+Use the real username. A relative path or `~` will not work.
 
 ---
 
-## Step 6 — Restart the CLI
+## Step 5 — Restart the CLI
 
-Plugin enable/disable and `SessionStart` hooks only take effect on a fresh process. A
-disabled plugin's hooks keep running until then.
-
-The first start after this will be slower: the CLI fetches and caches each plugin under
-`~/.claude/plugins/cache/`.
+The hook is read at session start only. Running sessions keep the old behaviour.
 
 ---
 
-## Step 7 — Verify (do not skip)
+## Step 6 — Verify (do not skip)
 
-```bash
-claude plugin list
+Open a new session. The first system context should contain:
+
+```
+LEA ACTIVE - always on. Terse prose, unlimited analysis.
 ```
 
-Expected: the plugins you chose show `✔ enabled`, the rest `✘ disabled`.
+If it does not: check that `settings.json` is valid JSON, that the path in `command` is absolute,
+and that the file is actually there — in that order.
 
-Then start a session and confirm:
+---
 
-1. The hook banners appear at the top of the session context — `VERIFICATION-BEFORE-COMPLETION
-   ACTIVE` and/or `LEAN-CONTEXT ACTIVE`.
-2. The agent roster does **not** list `caveman:AGENTS` or `caveman:CLAUDE` (see troubleshooting).
-3. `/skills` lists the skills you expect.
+## What this does not install, and why
 
-If the modes did not activate, go to troubleshooting — do not just re-run the install.
+This guide installs no plugins. The measurements say Lea does what `caveman`, `ponytail` and
+`superpowers` do together, more cheaply on most rounds: those three inject roughly 6,000 tokens of
+rules that are re-read on every one of a tool task's 6–9 turns. Lea's rule set is ~180 tokens.
+
+**If they are already installed, do not run Lea alongside them.** The rule sets stack, the
+instructions contradict each other, and the measured gain disappears. Set the `caveman`, `ponytail`
+and `superpowers` entries under `enabledPlugins` in `~/.claude/settings.json` to `false`, then
+restart the CLI.
+
+The two older hooks (`verification-activate.js`, `lean-context-activate.js`) do not conflict with
+Lea, but the `hooks` configuration measured more expensive than `bare` on tool work and once cost
+4.4× its own median on the website round. Keep them if you want them — Lea's numbers were measured
+without them.
 
 ---
 
 ## Troubleshooting
 
-**Nothing activated. No hook banner, no caveman, no ponytail.**
-`SessionStart` hooks share one timeout window: when it expires the entire batch is cancelled
-and no hook output is injected at all — so one slow hook silently kills every other one.
-Grep the session transcript at `~/.claude/projects/<slug>/<session-id>.jsonl` for
-`hook_cancelled` versus `hook_success`. Never put a PowerShell script in a `SessionStart`
-hook; `powershell.exe` cold start alone is ~2–3 s. Node starts in ~200 ms.
-
-**`claude plugin list` omits a plugin whose skills clearly load.**
-`enabledPlugins` in `settings.json` has desynced from
-`~/.claude/plugins/installed_plugins.json`. Fix with
-`claude plugin install <plugin>@<marketplace> -y`.
-
-**A plugin is installed but behaves like an old version.**
-A stray `~/.claude/skills/<name>/SKILL.md` from an older manual install shadows the plugin
-copy. `diff` it against
-`~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/skills/<name>/SKILL.md` and delete
-or overwrite the loose one.
-
-**Phantom `caveman:AGENTS` / `caveman:CLAUDE` agents in the roster, spawnable with all tools.**
-Those are the plugin's contributor docs being read as agent definitions. Rename them:
-
-```bash
-cd ~/.claude/plugins/cache/caveman/caveman/*/agents/
-mv AGENTS.md AGENTS.doc.txt
-mv CLAUDE.md CLAUDE.doc.txt
-```
-
-This is a cache edit — a plugin update restores the files, so re-check after each update.
-
-**`skillOverrides` has no effect.**
-It cannot hide plugin skills; the resolver short-circuits plugin-sourced skills to `"on"`
-before the setting is consulted. It only works on your own skills under `~/.claude/skills/`.
-The only lever on a plugin skill is disabling the whole plugin.
-
-**Scripted `claude -p` runs come back as prose with every tool call denied (Windows).**
-`claude` on `PATH` may be a `claude.cmd` batch shim; `cmd.exe` truncates the command line at
-the first newline inside an argument, so a multi-line `-p` prompt silently drops every flag
-after it. Call `<home>/.local/bin/claude.exe` directly from scripts.
+| Symptom | Cause | Fix |
+|---|---|---|
+| No `LEA ACTIVE` in the session | hook never ran | is `settings.json` valid JSON (`node -e "JSON.parse(require('fs').readFileSync(process.env.HOME+'/.claude/settings.json'))"`), is the path absolute |
+| `node: not found` in the hook error | node not on PATH | write node's full path in `command` |
+| Answers still long | old session | restart the CLI; hooks do not load mid-session |
+| Answers too short, analysis cut too | another terseness rule is active | check that `caveman`/`ponytail` are off — their rules collide with Lea's analysis exception |
 
 ---
 
 ## Uninstall
 
 ```bash
-# restore the backup from step 2
-cp ~/.claude/settings.json.bak ~/.claude/settings.json
-rm ~/.claude/hooks/verification-activate.js ~/.claude/hooks/lean-context-activate.js
-rm -rf ~/.claude/skills/lean-context
+cp ~/.claude/backups/lea-install/settings.json ~/.claude/settings.json
+rm ~/.claude/hooks/lea.js
 ```
 
 Then restart the CLI.
@@ -201,7 +161,6 @@ Then restart the CLI.
 
 ## Full documentation
 
-- [`guide/setup-guide.en.md`](guide/setup-guide.en.md) — what each part does, and why each
-  disabled plugin was disabled
-- [`guide/benchmarks.en.md`](guide/benchmarks.en.md) — the four measured rounds behind the
-  recommendations
+- Lea's design, version log and five test results: the report page (`rapor-lea.html`)
+- Method and the five-configuration comparison: [`guide/benchmarks.en.md`](guide/benchmarks.en.md)
+- The long form of these setup notes: [`guide/setup-guide.en.md`](guide/setup-guide.en.md)
