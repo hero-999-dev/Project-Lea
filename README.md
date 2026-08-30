@@ -5,7 +5,9 @@ than taste: it replaces a stack of plugins with one file. This repository is the
 install guide, and the measurements it was built from — five task types, 286 graded runs on
 Sonnet and Opus, plus a round on a real production site.
 
-**📖 Read it as a website → https://hero-999-dev.github.io/Project-Lea/**
+**📖 The full report is `docs/index.html`** — clone or download the repository and open that
+file in a browser. It is a single self-contained page: no server, no build step, no network
+calls. (It is not published as a website; the repository is private.)
 **📦 Full report as a downloadable archive →** [Releases](../../releases/latest)
 
 Everything here is bilingual: **English** and **Türkçe**.
