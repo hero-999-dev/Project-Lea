@@ -20,6 +20,11 @@ calls. (It is not published as a website; the repository is private.)
 
 Everything here is bilingual: **English** and **Türkçe**.
 
+**Collecting data on another machine?** [`collector/`](collector/README.md) installs Lea plus a
+background arm that answers each of your prompts a second time with a stock config, so the two
+can be compared. It only writes a local ledger; one command packages it to send back. Turkish:
+[`collector/README.tr.md`](collector/README.tr.md).
+
 ---
 
 ## The short version
