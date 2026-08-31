@@ -24,6 +24,14 @@ import csv
 import io
 import os
 import statistics as st
+import sys
+
+# The prompts are Turkish and the Windows console defaults to cp1252, which cannot encode
+# a dotless i. Without this the report dies mid-table on the first Turkish prompt it prints.
+try:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+except Exception:
+    pass
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
