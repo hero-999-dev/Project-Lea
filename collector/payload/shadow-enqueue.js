@@ -45,6 +45,23 @@ const slash = (v) => String(v).split(BS).join("/");   // cmd and pwsh both take 
 // "claude-opus-5" - which writes a second spelling of one model into the ledger and splits the
 // dataset the report groups by. That is the first prompt of every session, where no assistant
 // record exists yet; the runner waits for one instead of spending the budget on the guess.
+// The first prompt of a session is the only one both arms can answer from the same standing
+// start: after it, the prompt means whatever the conversation has made it mean, and the shadow
+// arm has no conversation. The tell is the same one the model resolution turns on - an assistant
+// record exists only once the session has answered something.
+function isSessionStart(hook) {
+  try {
+    const lines = fs.readFileSync(hook.transcript_path, "utf8").split("\n");
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      let rec;
+      try { rec = JSON.parse(line); } catch { continue; }
+      if (rec.type === "assistant" && rec.message && rec.message.model) return false;
+    }
+    return true;
+  } catch { return false; }   // unreadable transcript: assume not, and let the run be skipped
+}
+
 function sessionModel(hook, cfg) {
   if (cfg.model && cfg.model !== "match") return { model: cfg.model, sure: true };
   if (hook.model && typeof hook.model === "string") return { model: hook.model, sure: true };
@@ -113,6 +130,7 @@ function main(input) {
     args.push("-ModelGuess");
     if (hook.transcript_path) args.push("-Transcript", slash(hook.transcript_path));
   }
+  if (isSessionStart(hook)) args.push("-SessionStart");
   const child = spawn("wscript", args, { detached: true, stdio: "ignore", windowsHide: true });
   child.unref();
 }

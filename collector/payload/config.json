@@ -3,7 +3,9 @@
   "_comment": "Collector install. Every prompt you answer is answered a second time in the background, in a copy of your working directory, by a stock configuration - so the two can be compared. Nothing here touches your real directory, nothing is sent anywhere, and nothing leaves this machine until you run export.ps1 yourself. Set enabled to false to stop it; the hooks then do nothing at all.",
   "budget_usd_per_run": 3.0,
   "daily_budget_usd": 6.0,
-  "min_prompt_chars": 40,
+  "min_prompt_chars": 12,
+  "pair_session_start_only": true,
+  "_pairing_comment": "A pair is a measurement only when both arms were given the same problem. That is true of the first prompt of a session and of almost nothing after it: \"commit et\" means something to Lea, which has the conversation, and nothing to a shadow run starting from an empty context in a copy of the directory. Measured before this was turned on: 5 pairs collected, 5 of them mid-conversation, 0 comparable, $5.74 spent. With it on, the hook marks the prompt that opened the session - the transcript has no assistant record yet - and everything else is skipped before anything is copied. min_prompt_chars drops to 12 in the same breath: it is there to keep \"ok\" out of the ledger, and at 40 it was discarding session openers like \"dedigin gibi yeniden baslattim\", which are now the only prompts that run. Acknowledgements are skip_prompt_patterns' job. Set this to false to collect mid-conversation runs anyway - they are still a real stock config answering a real prompt, they just cannot be paired with Lea's turn.",
   "copy": {
     "max_total_mb": 600,
     "max_files": 15000,

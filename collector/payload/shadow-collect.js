@@ -40,7 +40,12 @@ function priceOf(model) {
 function sessionCost(transcriptPath) {
   // Sum every assistant message in the transcript. Cache reads are billed per call, so they
   // are summed too rather than counted once.
-  let total = 0, out = 0, turns = 0, model = "";
+  //
+  // The input counts are summed for the same reason the cost is: what this turn had to read is
+  // the whole difference between the two arms. Lea answers inside a session and pays to re-read
+  // it on every turn; the shadow arm answers the same prompt from an empty context. Recording
+  // both sides is what lets the report say which numbers are comparable and which are not.
+  let total = 0, out = 0, turns = 0, model = "", cr = 0, inp = 0;
   let text;
   try { text = fs.readFileSync(transcriptPath, "utf8"); } catch { return null; }
   for (const line of text.split("\n")) {
@@ -56,9 +61,11 @@ function sessionCost(transcriptPath) {
              (u.output_tokens || 0) * p.out +
              (u.input_tokens || 0) * p.cw / 1.25;
     out += u.output_tokens || 0;
+    cr += u.cache_read_input_tokens || 0;
+    inp += (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0);
     turns += 1;
   }
-  return { total, out, turns, model };
+  return { total, out, turns, model, cr, inp };
 }
 
 function csvRow(values) {
@@ -85,11 +92,14 @@ function main(input) {
 
   // The session total minus what it was at the end of the previous turn is this turn's cost.
   const statePath = path.join(SHADOW, ".sessions", sid + ".cost.json");
-  let before = { total: 0, out: 0, turns: 0 };
+  let before = { total: 0, out: 0, turns: 0, cr: 0, inp: 0 };
   try { before = JSON.parse(fs.readFileSync(statePath, "utf8")); } catch {}
   const cost = now.total - before.total;
   const outTok = now.out - before.out;
   const turns = now.turns - before.turns;
+  const crTok = now.cr - (before.cr || 0);
+  const inTok = now.inp - (before.inp || 0);
+  const turnsBefore = before.turns || 0;      // how deep into the session this prompt arrived
   fs.writeFileSync(statePath, JSON.stringify(now), "utf8");
 
   // Lea's diff, taken against the copy the shadow arm started from: same ancestor, so the
@@ -103,10 +113,12 @@ function main(input) {
 
   const csv = path.join(SHADOW, "lea.csv");
   if (!fs.existsSync(csv)) {
-    fs.writeFileSync(csv, "id,when,model,cost_usd,turns,output_tokens,cwd\n", "utf8");
+    fs.writeFileSync(csv, "id,when,model,cost_usd,turns,output_tokens,cwd," +
+      "input_tokens,cache_read_tokens,turns_before\n", "utf8");
   }
   fs.appendFileSync(csv, csvRow([pointer.id, new Date().toISOString().slice(0, 19).replace("T", " "),
-    now.model, cost.toFixed(6), turns, outTok, pointer.cwd]) + "\n", "utf8");
+    now.model, cost.toFixed(6), turns, outTok, pointer.cwd,
+    inTok, crTok, turnsBefore]) + "\n", "utf8");
   fs.writeFileSync(path.join(runDir, "lea.recorded"), "", "utf8");
   prune();
 }

@@ -30,7 +30,11 @@ param(
     # from this script resolves it first, or waits model_wait_seconds out and records in the log
     # that it could not.
     [switch]$ModelGuess,
-    [string]$Transcript = ''
+    [string]$Transcript = '',
+    # Set when this prompt opened its session. See pair_session_start_only in config.json:
+    # a prompt sent mid-conversation cannot be answered by an arm that has no conversation,
+    # so pairing one would compare two different problems.
+    [switch]$SessionStart
 )
 
 $ErrorActionPreference = 'Continue'
@@ -67,11 +71,13 @@ function Write-Log([string]$m) {
 
 function Write-Row([hashtable]$r) {
     if (-not (Test-Path $Csv)) {
-        'id,when,config,model,rule,status,cost_usd,turns,output_tokens,duration_s,files_copied,note' |
+        ('id,when,config,model,rule,status,cost_usd,turns,output_tokens,duration_s,' +
+         'files_copied,note,input_tokens,cache_read_tokens') |
             Set-Content $Csv -Encoding utf8
     }
     $fields = @($r.id, $r.when, $r.config, $r.model, $r.rule, $r.status, $r.cost, $r.turns,
-                $r.output, $r.duration, $r.files, $r.note) | ForEach-Object {
+                $r.output, $r.duration, $r.files, $r.note, $r.input, $r.cacheRead) |
+              ForEach-Object {
         $v = "$_"
         if ($v -match '[",]') { '"' + $v.Replace('"', '""') + '"' } else { $v }
     }
@@ -325,9 +331,16 @@ function Invoke-Cell([string]$cellId, [string]$dir, [string]$model, [int]$files)
     $secs = [math]::Round(((Get-Date) - $t0).TotalSeconds, 0)
 
     $cost = ''; $turns = ''; $outTok = ''; $status = 'error'; $note = ''
+    # What this arm had to read to answer. Recorded because the other arm's figure is not
+    # comparable to it: a turn inside a long session re-reads the whole conversation, and a
+    # shadow run reads only its own. Without both numbers the cost ratio looks like a verdict
+    # about the configuration when it is mostly a verdict about how far in the prompt arrived.
+    $inTok = ''; $crTok = ''
     try {
         $j = Get-Content $out -Raw | ConvertFrom-Json
         $cost = $j.total_cost_usd; $turns = $j.num_turns; $outTok = $j.usage.output_tokens
+        $inTok = [int]$j.usage.input_tokens + [int]$j.usage.cache_creation_input_tokens
+        $crTok = [int]$j.usage.cache_read_input_tokens
         # A run stopped by the budget is not a cheap result, it is an unfinished one. Its own
         # status keeps it out of every comparison.
         if ($j.subtype -eq 'error_max_budget_usd') {
@@ -350,7 +363,8 @@ function Invoke-Cell([string]$cellId, [string]$dir, [string]$model, [int]$files)
 
     Write-Row @{ id = $cellId; when = $now; config = $config; model = $model; rule = $rule
                  status = $status; cost = $cost; turns = $turns; output = $outTok
-                 duration = $secs; files = $files; note = $note }
+                 duration = $secs; files = $files; note = $note
+                 input = $inTok; cacheRead = $crTok }
     "[{0}] {1} {2} cost={3} turns={4} {5}s" -f (Get-Date -Format 'MM-dd HH:mm:ss'), $cellId,
         $status, $cost, $turns, $secs | Add-Content -Path $Log
 }
@@ -382,6 +396,16 @@ foreach ($pat in $cfg.skip_prompt_patterns) {
                      note = "matched skip pattern $pat" }
         exit 0
     }
+}
+# Before the copy, because this one can never become worth retrying. A prompt sent into an
+# existing conversation means what the conversation made it mean; the shadow arm starts from
+# nothing and answers a different question, at full price. Five such runs cost $5.74 here and
+# produced no comparison at all.
+if ($cfg.pair_session_start_only -and -not $SessionStart) {
+    Update-RunModel
+    Write-Row @{ id = $Id; when = $now; model = $runModel; status = 'skipped'
+                 note = 'sent mid-conversation - the shadow arm has no conversation to resolve it against' }
+    exit 0
 }
 # Decide the config before anything is copied, because the decision says whether a copy is
 # needed at all: a prose question is answered in the reply, so neither arm touches the
