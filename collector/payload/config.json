@@ -41,7 +41,8 @@
     "max_scan_seconds": 180
   },
   "model": "match",
-  "_model_comment": "\"match\" means the shadow arm runs whatever model the session is running, resolved from the transcript by the hook. Anything else pins it to that model and makes the comparison model-vs-model as much as config-vs-config - which is not what this is for. An Opus shadow run costs about 2.5x a Sonnet one, so a matched Opus session buys fewer runs out of window_budget_usd.",
+  "model_wait_seconds": 90,
+  "_model_comment": "\"match\" means the shadow arm runs whatever model the session is running. The only place that id is written is an assistant record in the session's transcript, so the hook reads it there. On the first prompt of a session no such record exists yet and settings.json is all there is - an alias at best (\"opus\", not \"claude-opus-5\"), and simply wrong when the session was started with --model. That value is passed as a guess and the runner waits up to model_wait_seconds for the real one before it spends anything, which is what keeps one model from appearing under two names in the ledger. Anything other than \"match\" pins the shadow arm to that model and makes the comparison model-vs-model as much as config-vs-config - which is not what this is for; a pin overrides everything the hook works out. An Opus shadow run costs about 2.5x a Sonnet one, so a matched Opus session buys fewer runs out of window_budget_usd.",
   "skip_prompt_patterns": [
     "^/",
     "^(evet|hayır|tamam|ok|devam|dur|peki|yes|no|thanks|teşekkür)\\b"

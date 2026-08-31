@@ -32,27 +32,40 @@ const slash = (v) => String(v).split(BS).join("/");   // cmd and pwsh both take 
 
 // The shadow arm has to run the model this session is running, or the comparison stops being
 // about the configuration: Opus against Sonnet is a 2.5x price difference on its own, which
-// would swamp whatever the ruleset does. settings.json is not the answer either - it can say
-// "sonnet" while the session runs Opus - so the transcript is the source of truth, and the
-// static values are only fallbacks for the first prompt of a session.
+// would swamp whatever the ruleset does.
+//
+// Three sources are authoritative, in this order. A pinned config.model wins outright - that is
+// what pinning means, and reaching it last (as this did until 2026-08-30) left the pin dead.
+// The hook payload is next: Claude Code sends no model with UserPromptSubmit today, so that
+// branch is a forward-compatible check rather than a live path. Otherwise it is the newest
+// assistant record in the transcript, the only place the running model id is ever written.
+//
+// settings.json is NOT authoritative and is handed over marked as a guess: a session started
+// with --model overrides it, and even when it agrees it holds an alias - "opus", not
+// "claude-opus-5" - which writes a second spelling of one model into the ledger and splits the
+// dataset the report groups by. That is the first prompt of every session, where no assistant
+// record exists yet; the runner waits for one instead of spending the budget on the guess.
 function sessionModel(hook, cfg) {
-  if (hook.model && typeof hook.model === "string") return hook.model;
-  if (typeof hook.model === "object" && hook.model && hook.model.id) return hook.model.id;
+  if (cfg.model && cfg.model !== "match") return { model: cfg.model, sure: true };
+  if (hook.model && typeof hook.model === "string") return { model: hook.model, sure: true };
+  if (typeof hook.model === "object" && hook.model && hook.model.id) {
+    return { model: hook.model.id, sure: true };
+  }
   try {
     const lines = fs.readFileSync(hook.transcript_path, "utf8").split("\n");
     for (let i = lines.length - 1; i >= 0; i--) {
       if (!lines[i].trim()) continue;
       let rec;
       try { rec = JSON.parse(lines[i]); } catch { continue; }
-      if (rec.message && rec.message.model) return rec.message.model;
+      if (rec.message && rec.message.model) return { model: rec.message.model, sure: true };
     }
   } catch {}
   try {
     const s = JSON.parse(fs.readFileSync(path.join(process.env.USERPROFILE || "", ".claude",
       "settings.json"), "utf8"));
-    if (s.model) return s.model;
+    if (s.model) return { model: s.model, sure: false };
   } catch {}
-  return cfg.model && cfg.model !== "match" ? cfg.model : "sonnet";
+  return { model: "sonnet", sure: false };
 }
 
 function main(input) {
@@ -85,14 +98,22 @@ function main(input) {
   // overrides windowsHide, and that console is the pwsh window that flashed on every prompt.
   // wscript is a GUI-subsystem host: nothing to flash, and it starts pwsh hidden for us.
   const home = process.env.USERPROFILE || "";
-  const child = spawn("wscript", ["//B", "//Nologo",
+  const m = sessionModel(hook, cfg);
+  const args = ["//B", "//Nologo",
     slash(path.join(home, ".claude", "hooks", "shadow-hidden-launch.vbs")),
     "pwsh", "-NoProfile", "-File", slash(path.join(SHADOW, "run-shadow.ps1")),
     "-Id", id,
     "-PromptFile", slash(promptFile),
     "-Cwd", slash(hook.cwd || process.cwd()),
-    "-Model", sessionModel(hook, cfg)],
-    { detached: true, stdio: "ignore", windowsHide: true });
+    "-Model", m.model];
+  // A guess travels with the transcript and a flag, so the runner can wait for the session's
+  // first assistant record rather than bill a run under a model name that may not be the one
+  // the session is using.
+  if (!m.sure) {
+    args.push("-ModelGuess");
+    if (hook.transcript_path) args.push("-Transcript", slash(hook.transcript_path));
+  }
+  const child = spawn("wscript", args, { detached: true, stdio: "ignore", windowsHide: true });
   child.unref();
 }
 

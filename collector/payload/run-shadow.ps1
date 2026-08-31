@@ -15,6 +15,7 @@
 #
 # Usage (the hook does this):
 #   pwsh -NoProfile -File run-shadow.ps1 -Id <id> -PromptFile <path> -Cwd <path> -Model <model>
+#                                        [-ModelGuess -Transcript <path>]
 
 param(
     [Parameter(Mandatory = $true)][string]$Id,
@@ -22,7 +23,14 @@ param(
     [Parameter(Mandatory = $true)][string]$Cwd,
     # The model the session is running, so the shadow arm answers on the same one: otherwise the
     # comparison measures Opus against Sonnet, not config against config.
-    [string]$Model = ''
+    [string]$Model = '',
+    # Set when -Model could only be guessed from settings.json, which is the case on the first
+    # prompt of a session: the transcript has no assistant record yet and nothing else on disk
+    # carries the running model id. Nothing is billed or written under the guess: every exit
+    # from this script resolves it first, or waits model_wait_seconds out and records in the log
+    # that it could not.
+    [switch]$ModelGuess,
+    [string]$Transcript = ''
 )
 
 $ErrorActionPreference = 'Continue'
@@ -72,6 +80,70 @@ function Write-Row([hashtable]$r) {
 
 function Get-Family([string]$m) {
     switch -Regex ($m) { 'opus' { 'opus' } 'haiku' { 'haiku' } default { 'sonnet' } }
+}
+
+# Is this plugin actually on this machine? Installed means on disk, not merely recorded:
+# a pruned or hand-deleted cache leaves the entry in installed_plugins.json behind.
+function Test-PluginInstalled([string]$name) {
+    $rec = Join-Path $HOME '.claude\plugins\installed_plugins.json'
+    if (-not (Test-Path $rec)) { return $false }
+    try { $j = Get-Content $rec -Raw | ConvertFrom-Json } catch { return $false }
+    $entry = $j.plugins.$name
+    if (-not $entry) { return $false }
+    foreach ($e in @($entry)) {
+        if ($e.installPath -and (Test-Path -LiteralPath $e.installPath)) { return $true }
+    }
+    return $false
+}
+
+# The model the session is running, read from the newest assistant record in its transcript -
+# the only place Claude Code writes the model id. Returns $null if none has been written yet.
+#
+# waitSeconds exists for the first prompt of a session, where that record appears only once the
+# session's first assistant message lands. Polling for it is free: this process is detached, and
+# the base copy is already taken, so nothing about the comparison drifts while it waits.
+#
+# The file is open for append by the session, so it is read with FileShare.ReadWrite; Get-Content
+# would be enough on most days and would fail on the day the handle is exclusive. Only lines that
+# mention a model are parsed - the transcript is mostly large assistant records.
+function Resolve-SessionModel([string]$transcript, [int]$waitSeconds) {
+    if (-not $transcript -or -not (Test-Path -LiteralPath $transcript)) { return $null }
+    $deadline = (Get-Date).AddSeconds($waitSeconds)
+    while ($true) {
+        $lines = @()
+        try {
+            $fs = [IO.File]::Open($transcript, 'Open', 'Read', 'ReadWrite')
+            try {
+                $sr = New-Object IO.StreamReader($fs)
+                $lines = $sr.ReadToEnd() -split "`n"
+            }
+            finally { $fs.Dispose() }
+        }
+        catch {}
+        for ($i = $lines.Count - 1; $i -ge 0; $i--) {
+            if ($lines[$i] -notlike '*"model"*') { continue }
+            $rec = $null
+            try { $rec = $lines[$i] | ConvertFrom-Json } catch { continue }
+            if ($rec.message -and $rec.message.model) { return [string]$rec.message.model }
+        }
+        if ((Get-Date) -ge $deadline) { return $null }
+        Start-Sleep -Seconds 2
+    }
+}
+
+# Replace a guessed model with the session's real one. Every call site is a point where nothing
+# is left to hold still: either the run is about to be skipped and no copy will ever be taken,
+# or the copy is already on disk. So the wait inside can never shift the ancestor the two arms
+# are compared on, and no row and no dollar goes out under a name that was only a guess.
+function Update-RunModel {
+    if (-not $script:modelIsGuess) { return }
+    $m = Resolve-SessionModel $script:Transcript $script:ModelWait
+    if ($m) {
+        Write-Log "model from transcript: $m (guessed $($script:runModel))"
+        $script:runModel = $m
+    }
+    else { Write-Log "model unresolved, keeping the guess $($script:runModel)" }
+    $script:modelIsGuess = $false
 }
 
 # Returns the reason this run cannot go ahead right now, or $null if it can. Budget reasons are
@@ -199,6 +271,36 @@ function Invoke-Cell([string]$cellId, [string]$dir, [string]$model, [int]$files)
         }
     }
 
+    # `enabledPlugins` is a switch, not a fetch: it can only turn on a plugin the machine
+    # already has. A config that names plugins this machine has never installed therefore runs
+    # as plain `bare` - and recording that as `modes` is the one failure a benchmark cannot
+    # survive, because the row looks like evidence. Same fallback as a missing settings file,
+    # same visible note, so the pool can see which machines had the plugins and which did not.
+    $absent = @()
+    try {
+        $sj = Get-Content $settings -Raw | ConvertFrom-Json
+        if ($sj.enabledPlugins) {
+            foreach ($p in $sj.enabledPlugins.PSObject.Properties) {
+                if ($p.Value -eq $true -and -not (Test-PluginInstalled $p.Name)) { $absent += $p.Name }
+            }
+        }
+    }
+    catch {}
+    if ($absent.Count) {
+        $why = "$($absent -join ', ') not installed on this machine"
+        $fallback = Join-Path $BenchCfg 'bare.json'
+        if ($config -ne 'bare' -and (Test-Path $fallback)) {
+            $rule = "$rule [$why -> fell back to bare]"
+            $config = 'bare'; $settings = $fallback
+            Write-Log "config downgraded to bare: $why"
+        }
+        else {
+            Write-Row @{ id = $cellId; when = $now; config = $config; model = $model; rule = $rule
+                         status = 'error'; note = $why }
+            return
+        }
+    }
+
     "[{0}] {1} running {2} on {3} ({4} files)" -f (Get-Date -Format 'MM-dd HH:mm:ss'), $cellId,
         $config, $model, $files | Add-Content -Path $Log
     $t0 = Get-Date
@@ -258,16 +360,24 @@ if (-not $cfg.enabled) { Write-Log 'disabled in config.json'; exit 0 }
 
 $prompt = Get-Content $PromptFile -Raw
 $now = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-$runModel = if ($Model) { $Model } elseif ($cfg.model -and $cfg.model -ne 'match') { $cfg.model } else { 'sonnet' }
+# A pinned config.model beats anything the hook worked out - that is what pinning means.
+$modelPinned = $cfg.model -and $cfg.model -ne 'match'
+$runModel = if ($modelPinned) { [string]$cfg.model } elseif ($Model) { $Model } else { 'sonnet' }
+# Try the transcript once before the cheap skips. When the record is already there this costs a
+# single read and keeps even the skipped rows spelling the model the way the ledger groups by.
+$modelIsGuess = $ModelGuess.IsPresent -and -not $modelPinned
+$ModelWait = if ($cfg.model_wait_seconds) { [int]$cfg.model_wait_seconds } else { 90 }
 
 # Permanent skips first - these never become worth retrying, so they cost no copy.
 if ($prompt.Trim().Length -lt $cfg.min_prompt_chars) {
+    Update-RunModel
     Write-Row @{ id = $Id; when = $now; model = $runModel; status = 'skipped'
                  note = 'prompt shorter than min_prompt_chars' }
     exit 0
 }
 foreach ($pat in $cfg.skip_prompt_patterns) {
     if ($prompt.Trim() -match $pat) {
+        Update-RunModel
         Write-Row @{ id = $Id; when = $now; model = $runModel; status = 'skipped'
                      note = "matched skip pattern $pat" }
         exit 0
@@ -286,6 +396,7 @@ $needsTree = -not ($picks.Count -gt 2 -and $picks[2] -eq 'notree')
 $HomeFull = [IO.Path]::GetFullPath($HOME).TrimEnd($Sep)
 $CwdFull = [IO.Path]::GetFullPath($Cwd).TrimEnd($Sep)
 if ($needsTree -and ($CwdFull -eq $HomeFull -or $HomeFull.StartsWith($CwdFull + $Sep))) {
+    Update-RunModel
     Write-Row @{ id = $Id; when = $now; config = $pickConfig; model = $runModel; rule = $pickRule
                  status = 'skipped'
                  note = 'agentic prompt in the home directory - the tree is the experiment, and this one cannot be copied' }
@@ -296,6 +407,7 @@ if ($needsTree -and ($CwdFull -eq $HomeFull -or $HomeFull.StartsWith($CwdFull + 
 $lockStream = $null
 try { $lockStream = [IO.File]::Open($Lock, 'OpenOrCreate', 'ReadWrite', 'None') }
 catch {
+    Update-RunModel
     Write-Row @{ id = $Id; when = $now; model = $runModel; status = 'skipped'
                  note = 'another shadow run is in flight' }
     exit 0
@@ -312,6 +424,7 @@ try {
     if ($needsTree) {
         $files = Copy-Tree $CwdFull (Join-Path $RunDir 'base')
         if ($files -lt 0) {
+            Update-RunModel
             Write-Row @{ id = $Id; when = $now; config = $pickConfig; model = $runModel
                          rule = $pickRule; status = 'skipped'; note = $script:CopyWhy }
             Write-Log "skipped: $script:CopyWhy"
@@ -324,6 +437,11 @@ try {
         New-Item -ItemType Directory -Force -Path (Join-Path $RunDir 'base') | Out-Null
         $files = 0
     }
+
+    # The last point where the model can still be corrected: after this it is either spent under
+    # a model name or recorded in the ledger as one. The ancestor copy is on disk already, so
+    # waiting here cannot change what the two arms are compared on.
+    Update-RunModel
 
     $blocked = Get-BlockReason $runModel
     if ($blocked) {
