@@ -1,24 +1,24 @@
 {
-  "generated": "2026-09-03 13:52",
+  "generated": "2026-09-03 14:07",
   "baseline": "full",
   "model": "opus",
   "lea": {
-    "prompts": 132,
-    "total_usd": 797.988726,
-    "median_usd": 2.3383225000000003,
-    "turns": 2972,
-    "output_tokens": 4104952,
-    "input_tokens": 15688565,
-    "cache_read_tokens": 1083528032,
+    "prompts": 133,
+    "total_usd": 887.31162,
+    "median_usd": 2.377885,
+    "turns": 3138,
+    "output_tokens": 4280514,
+    "input_tokens": 16912933,
+    "cache_read_tokens": 1228636925,
     "first": "2026-08-30 18:02:51",
-    "last": "2026-09-03 08:26:28",
+    "last": "2026-09-03 11:54:35",
     "models": [
       "claude-opus-5"
     ],
     "by_user": {
       "A": {
-        "prompts": 130,
-        "usd": 792.0536249999997
+        "prompts": 131,
+        "usd": 881.3765189999997
       },
       "B": {
         "prompts": 2,
@@ -26,7 +26,9 @@
       }
     },
     "excluded_rows": 0,
-    "excluded_configs": []
+    "excluded_configs": [],
+    "pooled": {},
+    "pooled_unknown": 0
   },
   "matrix_rows": 286,
   "rounds": [
@@ -73,22 +75,22 @@
   ],
   "headline": {
     "ratio": 0.7358257617529307,
-    "would_be_usd": 1084.4805488992133,
-    "saved_usd": 286.4918228992133,
+    "would_be_usd": 1205.871914413801,
+    "saved_usd": 318.5602944138011,
     "saved_pct": 26.41742382470693,
     "source": "Kolay bug fix",
     "n": "3/3"
   },
   "ceiling": {
     "ratio": 0.4861662631926437,
-    "would_be_usd": 1641.390582636534,
-    "saved_usd": 843.4018566365339,
+    "would_be_usd": 1825.119690891431,
+    "saved_usd": 937.808070891431,
     "saved_pct": 51.38337368073562,
     "source": "Metin (araç yok)",
     "n": "5/3"
   },
   "shadow": {
-    "rows": 160,
+    "rows": 161,
     "ok": 11,
     "truncated": 0,
     "deferred": 1,
@@ -97,12 +99,12 @@
       "home directory": 10,
       "shorter than min_prompt_chars": 21,
       "in flight": 1,
-      "mid-conversation": 113,
+      "mid-conversation": 114,
       "skip pattern": 2,
       "other": 1
     },
     "comparable": 0,
-    "lea_rows": 132,
-    "home_cwd": 78
+    "lea_rows": 133,
+    "home_cwd": 79
   }
 }

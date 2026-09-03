@@ -22,6 +22,7 @@ Usage:  python report.py
 """
 import csv
 import io
+import json
 import os
 import statistics as st
 import sys
@@ -52,27 +53,58 @@ def load(name, key='id'):
 SUMMED = ('cost_usd', 'turns', 'output_tokens', 'input_tokens', 'cache_read_tokens')
 
 
+# Data imported from other machines. import.py merges each export zip in here and tags every row
+# with `source` (machine/user) and `key` (source + id), because a pooled ledger with unlabelled
+# rows cannot be read at all: model, budgets and configuration differ per install, so an install
+# difference would read as a configuration difference.
+#
+# Until 2026-09-03 nothing read this directory. Imports landed and changed no report and no page,
+# which is the worst kind of broken: it looks like it worked.
+POOL = os.path.join(HERE, 'pool')
+
+
+def load_pool(name, key='key'):
+    p = os.path.join(POOL, name)
+    if not os.path.exists(p):
+        return {}
+    with io.open(p, encoding='utf-8-sig', newline='') as fh:
+        return {r[key]: r for r in csv.DictReader(fh) if r.get(key)}
+
+
+def load_pool_lea():
+    """Same summing as the local ledger, keyed by `key` so two machines cannot collide on an id.
+
+    Run ids are timestamps plus a hash of the prompt, so two machines really can produce the
+    same id for the same prompt in the same second. `key` is what keeps them apart.
+    """
+    return _sum_lea(load_pool('lea.csv').values(), 'key')
+
+
 def load_lea():
     p = os.path.join(HERE, 'lea.csv')
     if not os.path.exists(p):
         return {}
-    out = {}
     with io.open(p, encoding='utf-8-sig', newline='') as fh:
-        for r in csv.DictReader(fh):
-            rid = r.get('id')
-            if not rid:
-                continue
-            if rid not in out:
-                out[rid] = dict(r)
-                continue
-            first = out[rid]
-            for f in SUMMED:
-                try:
-                    first[f] = str(float(first.get(f) or 0) + float(r.get(f) or 0))
-                except ValueError:
-                    pass
-            # The prompt arrived once, at the depth the first row recorded; a continuation of it
-            # did not arrive again.
+        return _sum_lea(csv.DictReader(fh), 'id')
+
+
+def _sum_lea(rows, key):
+    out = {}
+    for r in rows:
+        rid = r.get(key)
+        if not rid:
+            continue
+        if rid not in out:
+            out[rid] = dict(r)
+            continue
+        first = out[rid]
+        for f in SUMMED:
+            try:
+                first[f] = str(float(first.get(f) or 0) + float(r.get(f) or 0))
+            except ValueError:
+                pass
+        # The prompt arrived once, at the depth the first row recorded; a continuation of it
+        # did not arrive again.
     return out
 
 
@@ -108,7 +140,34 @@ def ratio(a, b):
     return (a / b) if (a and b) else None
 
 
+def pooled_prompts():
+    """id -> prompt, out of the pool's prompts.jsonl. Keyed by id, not by key: export.ps1 writes
+    the run id, having no idea what tag the importing machine will file it under."""
+    p = os.path.join(POOL, 'prompts.jsonl')
+    out = {}
+    if not os.path.exists(p):
+        return out
+    for line in io.open(p, encoding='utf-8'):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        if rec.get('id'):
+            out[rec['id']] = ' '.join(str(rec.get('prompt') or '').split())[:44]
+    return out
+
+
 def rows():
+    """Local rows first, then everything imported from other machines.
+
+    Both go through the same joining and the same pairing rules; what keeps them apart is the
+    `source` field, which is 'local' here and machine/user for anything pooled. Nothing is
+    merged into a single average - a difference between installs would otherwise read as a
+    difference between configurations, which is the one comparison this whole rig exists to make.
+    """
     lea, shadow = load_lea(), load('shadow.csv')
     for rid in sorted(set(lea) | set(shadow)):
         l, s = lea.get(rid, {}), shadow.get(rid, {})
@@ -116,7 +175,20 @@ def rows():
         pf = os.path.join(HERE, 'runs', rid, 'prompt.txt')
         if os.path.exists(pf):
             prompt = ' '.join(io.open(pf, encoding='utf-8').read().split())[:44]
-        yield dict(
+        yield _row(rid, 'local', l, s, prompt)
+
+    pl, ps = load_pool_lea(), load_pool('shadow.csv')
+    prompts = pooled_prompts()
+    for key in sorted(set(pl) | set(ps)):
+        l, s = pl.get(key, {}), ps.get(key, {})
+        rid = l.get('id') or s.get('id') or key
+        src = l.get('source') or s.get('source') or '?'
+        yield _row(rid, src, l, s, prompts.get(rid, ''))
+
+
+def _row(rid, source, l, s, prompt):
+        return dict(
+            source=source,
             id=rid, prompt=prompt, when=(l.get('when') or s.get('when') or ''),
             model=l.get('model', ''), config=s.get('config', ''), rule=s.get('rule', ''),
             status=s.get('status', 'pending'), note=s.get('note', ''),
@@ -195,6 +267,27 @@ def main():
     # and each carries its own account, budget and possibly its own ruleset. Printed per install
     # because a difference between installs would otherwise read as a difference between configs,
     # and because a profile that is silently contributing nothing is worth seeing.
+    # Where the rows came from. Local and pooled are counted apart on purpose: another machine
+    # runs a different model mix under different budgets, so folding it into one number would
+    # make an install difference look like a configuration difference.
+    by_source = {}
+    for r in data:
+        b = by_source.setdefault(r['source'], {'rows': 0, 'pairs': 0, 'comparable': 0})
+        b['rows'] += 1
+        if r in pairs:
+            b['pairs'] += 1
+        if r in opening_same:
+            b['comparable'] += 1
+    if len(by_source) > 1:
+        print('\nwhere the rows came from:')
+        for src, b in sorted(by_source.items()):
+            print('  %-28s %4d row(s), %d paired, %d comparable'
+                  % (src, b['rows'], b['pairs'], b['comparable']))
+        print('  Pooled rows are never averaged with local ones. Another machine runs its own')
+        print('  model mix under its own budgets; only same-source numbers compare.')
+    elif os.path.isdir(POOL):
+        print('\npool/ exists but holds nothing this report can use - `python import.py --list`')
+
     lea_rows = load_lea()
     installs = {}
     for r in lea_rows.values():
