@@ -66,6 +66,7 @@ Two non-obvious findings that will save you time regardless of which plugins you
 | [`config/skills/lean-context/`](config/skills/lean-context/) | A personal skill that routes bulky files through local converters instead of reading them raw |
 | [`collector/install-user.ps1`](collector/install-user.ps1) | Installs Lea and the shadow arm into a second Windows profile on the same machine, joined to the ledger `collector/install.ps1` already created instead of starting a parallel one |
 | [`docs/index.html`](docs/index.html) | The website version of the report — one self-contained file, opens offline |
+| [`site/`](site/) | The generated report pages, carried here by `sync_payload.py`. There is no URL: the repository is private and Pages is refused on this plan (HTTP 422), so `site/ac.ps1` pulls and opens them instead. See [`site/README.md`](site/README.md) |
 
 ---
 
