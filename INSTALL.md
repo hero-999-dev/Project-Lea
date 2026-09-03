@@ -135,6 +135,11 @@ Lea, but the `hooks` configuration measured more expensive than `bare` on tool w
 4.4× its own median on the website round. Keep them if you want them — Lea's numbers were measured
 without them.
 
+This guide installs only Lea's rule set. The shadow arm that measures Lea — it answers every prompt
+a second time under a stock configuration and writes both costs to a local ledger — is not part of
+it: that arm and its own install scripts are in `collector/`, described in
+[`collector/README.md`](collector/README.md).
+
 ---
 
 ## Troubleshooting
@@ -145,6 +150,7 @@ without them.
 | `node: not found` in the hook error | node not on PATH | write node's full path in `command` |
 | Answers still long | old session | restart the CLI; hooks do not load mid-session |
 | Answers too short, analysis cut too | another terseness rule is active | check that `caveman`/`ponytail` are off — their rules collide with Lea's analysis exception |
+| `... hook timed out after 20s` (e.g. `UserPromptSubmit hook timed out after 10s - output discarded`) | the hook did not finish inside the `timeout` on its `settings.json` entry, and its output is dropped — so `LEA ACTIVE` never reaches that session | raise that entry's `timeout` and restart the CLI; Lea's hook only prints a string, so if 20 s is not enough node itself is slow to start — write node's full path in `command`. A `UserPromptSubmit`/`Stop` timeout is a collector hook, not Lea's ([`collector/README.md`](collector/README.md)) |
 
 ---
 

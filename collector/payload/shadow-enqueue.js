@@ -49,34 +49,70 @@ const slash = (v) => String(v).split(BS).join("/");   // cmd and pwsh both take 
 // start: after it, the prompt means whatever the conversation has made it mean, and the shadow
 // arm has no conversation. The tell is the same one the model resolution turns on - an assistant
 // record exists only once the session has answered something.
-function isSessionStart(hook) {
+//
+// Both questions are answered by one bounded pass, and that bound is the whole point. This
+// used to be two readFileSync + split of the entire transcript - measured at 1.1 s on a 47 MB
+// file, on the critical path of every prompt and growing with the length of the conversation,
+// which is what eventually produced "UserPromptSubmit hook timed out after 10s - output
+// discarded". A transcript is append-only and the newest assistant record is at its end, so
+// read backwards a window at a time and stop at the first one. In a long session that is the
+// first window; in a session that has not answered yet the whole file is read, and such a file
+// is small by definition.
+const WINDOW = 1 << 20;         // 1 MB per read
+const MAX_SCAN = 64 << 20;      // and never more than this in total, whatever the file holds
+
+function scanTranscript(file) {
+  const res = { model: null, answered: false };
+  if (!file) return res;
+  let fd;
+  try { fd = fs.openSync(file, "r"); } catch { return res; }
   try {
-    const lines = fs.readFileSync(hook.transcript_path, "utf8").split("\n");
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      let rec;
-      try { rec = JSON.parse(line); } catch { continue; }
-      if (rec.type === "assistant" && rec.message && rec.message.model) return false;
+    let end = fs.fstatSync(fd).size;
+    let scanned = 0;
+    while (end > 0 && scanned < MAX_SCAN && !res.model) {
+      const start = Math.max(0, end - WINDOW);
+      const buf = Buffer.alloc(end - start);
+      fs.readSync(fd, buf, 0, buf.length, start);
+      scanned += buf.length;
+      const lines = buf.toString("utf8").split("\n");
+      // The window cut this line in half; the window before it owns the whole line. Dropping
+      // it is also what keeps a split multi-byte character out of the parse.
+      if (start > 0) lines.shift();
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (!lines[i].trim()) continue;
+        let rec;
+        try { rec = JSON.parse(lines[i]); } catch { continue; }
+        if (rec.type !== "assistant" || !rec.message || !rec.message.model) continue;
+        // "<synthetic>" is Claude Code's own injected assistant record - a usage-limit notice,
+        // an API error, an interrupt. It is not an answer and it creates none of the
+        // conversational dependency this flag exists to detect, so it must not count as one.
+        //
+        // It used to. The comment here argued it "still proves the session has produced
+        // something", and on 2026-09-02 that cost a measurement: a session opened while the
+        // account was over its limit had a synthetic "You've hit your session limit" record
+        // written at record 23, before the user had typed anything. The opening prompt arrived
+        // 23 s later, read as answered, and was filed as mid-conversation - the one prompt that
+        // session could ever have paired. Same failure as the transcript-not-on-disk race fixed
+        // the same morning, arriving from the other side.
+        if (!/^claude-/i.test(rec.message.model)) continue;
+        res.answered = true;
+        res.model = rec.message.model;
+        break;
+      }
+      end = start;
     }
-    return true;
-  } catch { return false; }   // unreadable transcript: assume not, and let the run be skipped
+  } catch {}
+  try { fs.closeSync(fd); } catch {}
+  return res;
 }
 
-function sessionModel(hook, cfg) {
+function sessionModel(hook, cfg, scan) {
   if (cfg.model && cfg.model !== "match") return { model: cfg.model, sure: true };
   if (hook.model && typeof hook.model === "string") return { model: hook.model, sure: true };
   if (typeof hook.model === "object" && hook.model && hook.model.id) {
     return { model: hook.model.id, sure: true };
   }
-  try {
-    const lines = fs.readFileSync(hook.transcript_path, "utf8").split("\n");
-    for (let i = lines.length - 1; i >= 0; i--) {
-      if (!lines[i].trim()) continue;
-      let rec;
-      try { rec = JSON.parse(lines[i]); } catch { continue; }
-      if (rec.message && rec.message.model) return { model: rec.message.model, sure: true };
-    }
-  } catch {}
+  if (scan.model) return { model: scan.model, sure: true };
   try {
     const s = JSON.parse(fs.readFileSync(path.join(process.env.USERPROFILE || "", ".claude",
       "settings.json"), "utf8"));
@@ -85,11 +121,31 @@ function sessionModel(hook, cfg) {
   return { model: "sonnet", sure: false };
 }
 
+// Claude Code submits these itself when a usage limit lifts. They arrive through
+// UserPromptSubmit exactly like a typed prompt, and they are not one. All three variants in the
+// binary share this clause, so one pattern covers the lot:
+//   "You can continue now. Continue the task you were working on when the usage limit was
+//    reached; do not repeat work that is already complete."
+//   "Your claude.ai usage limit has reset. Continue the task you were working on when the limit
+//    was reached; ..."
+//   "Your claude.ai usage is available again before the usage-limit reset. Continue the task ..."
+const AUTO_CONTINUE =
+  /Continue the task you were working on when the (?:usage )?limit was reached; do not repeat work that is already complete\./;
+
 function main(input) {
   let hook;
   try { hook = JSON.parse(input); } catch { return; }
   const prompt = hook.prompt;
   if (!prompt || !prompt.trim()) return;
+
+  // Skipped before anything is written, and the pointer is the reason. Letting one of these
+  // through opened a new run id and moved .sessions/<id>.json onto it, so the 36 turns and
+  // $4.17 Lea spent finishing the task were recorded against a prompt the shadow arm had never
+  // seen - while the prompt it HAD copied a 1,651-file tree for could never get a Lea half. The
+  // pair split across two ids and neither half was usable. Leaving the pointer alone attributes
+  // the continued work to the prompt that started it, which is where it belongs: it is the same
+  // task, interrupted by a wall.
+  if (AUTO_CONTINUE.test(prompt)) return;
 
   let cfg;
   try { cfg = JSON.parse(fs.readFileSync(path.join(SHADOW, "config.json"), "utf8")); } catch { return; }
@@ -103,9 +159,18 @@ function main(input) {
   fs.writeFileSync(promptFile, prompt, "utf8");
 
   // The Stop hook needs to find this run again to record what Lea did with the same prompt.
+  //
+  // Its absence is also the only reliable tell that this is the first prompt of the session,
+  // and it has to be read before it is written. The transcript cannot answer that question at
+  // the one moment it matters: on the first prompt Claude Code has often not written the file
+  // yet, the read throws, and "unreadable" used to be resolved as "not a session start" - so
+  // the single prompt per session that CAN be paired was the one prompt guaranteed to be
+  // thrown away. Measured: of the three session openers that arrived after the rule went live
+  // on 2026-08-31, two were skipped as "mid-conversation" for exactly this reason.
+  const sessionFile = path.join(SHADOW, ".sessions", (hook.session_id || "unknown") + ".json");
+  const firstOfSession = !fs.existsSync(sessionFile);
   fs.mkdirSync(path.join(SHADOW, ".sessions"), { recursive: true });
-  fs.writeFileSync(
-    path.join(SHADOW, ".sessions", (hook.session_id || "unknown") + ".json"),
+  fs.writeFileSync(sessionFile,
     JSON.stringify({ id, cwd: hook.cwd || process.cwd(), at: new Date().toISOString() }),
     "utf8");
 
@@ -115,7 +180,8 @@ function main(input) {
   // overrides windowsHide, and that console is the pwsh window that flashed on every prompt.
   // wscript is a GUI-subsystem host: nothing to flash, and it starts pwsh hidden for us.
   const home = process.env.USERPROFILE || "";
-  const m = sessionModel(hook, cfg);
+  const scan = scanTranscript(hook.transcript_path);
+  const m = sessionModel(hook, cfg, scan);
   const args = ["//B", "//Nologo",
     slash(path.join(home, ".claude", "hooks", "shadow-hidden-launch.vbs")),
     "pwsh", "-NoProfile", "-File", slash(path.join(SHADOW, "run-shadow.ps1")),
@@ -130,7 +196,11 @@ function main(input) {
     args.push("-ModelGuess");
     if (hook.transcript_path) args.push("-Transcript", slash(hook.transcript_path));
   }
-  if (isSessionStart(hook)) args.push("-SessionStart");
+  // Two signals, both of which must agree, and neither of which can be read off the transcript
+  // alone. The pointer file says this hook has not seen the session before; the transcript says
+  // the session has not answered anything. A resumed session fails the second even when its id
+  // is new, and a session whose transcript is not on disk yet still passes the first.
+  if (firstOfSession && !scan.answered) args.push("-SessionStart");
   const child = spawn("wscript", args, { detached: true, stdio: "ignore", windowsHide: true });
   child.unref();
 }

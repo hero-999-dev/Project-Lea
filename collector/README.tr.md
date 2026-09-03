@@ -33,12 +33,29 @@ sayıyı değiştir, ya da tamamen durdurmak için `"enabled": false` yap.
 ~/.claude/hooks/          shadow-enqueue.js, shadow-collect.js, shadow-hidden-launch.vbs, lea.js
 ~/.claude/shadow/         runner, seçici, rapor, defterler, koşu kopyaları
 ~/.claude/shadow-dir.txt  tek satır, hook'lar o dizini bulabilsin diye
-~/.claude/settings.json   üç hook kaydı, birleştirilerek - önce yedeklenir
+~/.claude/settings.json   üç hook kaydı + autoContinueAtUsageLimit, birleştirilerek - önce yedeklenir
 ```
 
 Başka hiçbir şey. Çalışma dizinine asla yazılmaz: gölge ajan yalnızca
 `~/.claude/shadow/runs/<id>/work/` içinde, yani bir kopyada koşar. **Hiçbir şey yüklenmiyor.**
 Veri makineni ancak sen `export.ps1` çalıştırıp dosyayı gönderdiğinde terk eder.
+
+### Değiştirdiği tek davranış ayarı, ve nedeni
+
+`autoContinueAtUsageLimit`, kurulumun değiştirdiği hook olmayan tek ayar. CLI'ın kendi
+açıklaması: *"When a claude.ai usage limit stops your session, wait for the limit to reset and
+continue the task automatically. When off, the limit dialog offers the wait as a choice
+instead."* Varsayılan olarak açık, çünkü 5 saatlik limitte biten bir oturum o istemin ölçümünü
+geciktirmiyor, **kaybediyor**: gölge kolunun satırı çoktan yazılmış oluyor, Lea'nın turu ise hiç
+yazılmıyor — yani çift yarım kaydedilmiş oluyor. Oturumun açık kalması gerekiyor ve izin
+sorularında yine durabilir. `-NoAutoContinue` bu ayara dokunmaz.
+
+**Düşük öncelik (lower-priority) bambaşka bir şey ve önceden ayarlanamıyor.** İstemciye
+rate-limit yanıt başlıklarında *teklif ediliyor*, yani ancak limit gerçekten yendikten sonra var
+oluyor; bayrağı, ortam değişkeni ve ayar anahtarı yok, teklif gelmeden yazılacak bir şey de yok.
+Limit diyaloğundan kabul et, ya da menüyü `/rate-limit-options` ile yeniden aç. Bunların hiçbiri
+gölge koluna ulaşmıyor — o headless: karşılığı `config.json`'daki erteleme kuyruğu ve limitli
+koşudan sonraki bekleme, ikisi de zaten kurulu.
 
 ## Tek Anthropic hesabında birden çok kurulum
 
@@ -47,9 +64,11 @@ birbirine karışmaz — ama **aynı Anthropic hesabına** giriş yaparlarsa ayn
 harcarlar. `config.json` içindeki bütçeler kurulum başına ve birbirlerinden habersiz, dolayısıyla
 N kurulum tek pencereden N katı pay alabilir.
 
-Dağıtmadan önce böl: tek hesapta üç toplayıcı varsa her birinde `window_budget_usd` $1,
-model keseleri de yaklaşık opus $0.70 / sonnet $0.30 olsun. Rapor yine dolar, sadece daha yavaş,
-ve pencerenin kalanı senin kendi oturumlarına kalır.
+Dağıtmadan önce böl — `-InstallsOnThisAccount <n>` bunu senin yerine yapıyor:
+`window_budget_usd`, `daily_budget_usd` ve model keselerini n'e bölüyor. (`budget_usd_per_run`
+bilerek bölünmüyor: tek bir koşunun tavanı, gerçek bir görevin iş ortasında kesilmesini önleyen
+şey, ve kesilmiş bir koşu ucuz değil, boşa gitmiş bir koşudur.) Rapor yine dolar, sadece daha
+yavaş, ve pencerenin kalanı senin kendi oturumlarına kalır.
 
 Aynı makinedeki ikinci bir Windows kullanıcısı için Claude Code CLI'ın **o kullanıcıya** kurulu
 olması gerekir — bir kullanıcının profili diğeri tarafından okunamaz. Kurulum bunu kontrol eder
@@ -69,8 +88,64 @@ pwsh -File install.ps1 -Account A -InstallsOnThisAccount 2
 pwsh -File install.ps1 -Account B -InstallsOnThisAccount 2
 ```
 
-Dördü de pencere $1.50 / gün $3 / opus $1 / sonnet $0.50 ile koşar — hesap başına iki kurulum,
-yani her hesap toplamda yine bir pencerenin beşte biri kadarını veriyor.
+Dördü de pencere $3 / gün $5 / opus $2 / sonnet $1 / haiku $0.50 ile koşar — şablondaki
+$6 / $10 / $4 / $2 / $1 değerlerinin yarısı, hesap başına iki kurulum. Ölçülmüş bir 5 saatlik
+pencere $15–20'lik token tutuyor, yani her hesap yine bir pencerenin beşte birinden azını veriyor.
+
+## Tek makinede iki Windows kullanıcısı, tek defter
+
+`install.ps1` bir makineyi tek katkı sağlayıcı olarak kurar: gölge dizini o profilin kendi
+`~/.claude`'unun altına koyar ve var olan bir dizini başka yere yönlendirmeyi reddeder. Yeni bir
+makine için doğru, ama iki profil **aynı kişinin aynı proje üzerinde çalıştığı** durumda yanlış:
+iki ayrı defter olur ve `claude`'u hangi profilde başlattıysan yalnızca o kaydeder. İkinci profil
+için `install-user.ps1` kullan — paralel bir defter açmak yerine birincinin defterine katılır.
+
+```powershell
+# birinci profil: defteri oluşturan normal kurulum
+pwsh -File install.ps1 -Account A -InstallsOnThisAccount 2
+
+# ikinci profil: yeni defter açma, o deftere katıl
+pwsh -NoProfile -File install-user.ps1 `
+     -TargetHome  C:\Users\<ikinci-kullanici> `
+     -SharedShadow C:\Users\<birinci-kullanici>\.claude\shadow
+```
+
+Hedef profile yazabilen bir hesaptan çalıştır — yönetici ya da o kullanıcının kendisi. Üzerine
+yazdığı her dosyayı önce yedekler, başka bir dizini gösteren `shadow-dir.txt`'yi yeniden
+yönlendirmeyi reddeder ve sonunda yazdığı her hook komutunun gerçekten var olan bir dosyaya
+çözüldüğünü doğrular. Hiçbir şeye dokunmadan planı görmek için `-WhatIf` ekle.
+
+**İkinci profilde `enabledPlugins`'i de kapatır; bu yan etki değil, işin kendisi.** Eklentileri
+açık bir oturum Lea değildir, dolayısıyla satırları da Lea'nın satırı değildir. İki defter de
+`user`, `host` ve `lea_config` taşıyor: tek dosyaya iki kurulum yazarken, satırın kim tarafından
+hangi kural setiyle yazıldığını söylemeyen bir satır, başka bir hesapta / bütçede / modelde
+yazılmış bir satırdan ayırt edilemez — ve kurulumlar arasındaki fark, config'ler arasındaki fark
+gibi okunur. `report.py` kurulum başına bir satır basar; `lea_config`'i `lea` olmayan hiçbir satır
+Lea iddiasına katılmaz, sessizce ortalamaya karışmaz. `-KeepPlugins`'i yalnızca bilerek kullan.
+
+İki profil de aynı iki CSV'ye eklediği için ekleme işlemleri bir kilit dosyasından
+(`.ledger.lock`) geçiyor; PowerShell koşucusu ile Node hook'u aynı kilidi kullanıyor. Paylaşılan
+bütçe kendiliğinden geliyor: pencere ve gün limitleri paylaşılan `shadow.csv`'den hesaplanıyor,
+yani tek Anthropic hesabındaki iki profil payın tamamını ayrı ayrı harcayamıyor.
+
+Tek kurulumdan gelen eski bir defter yeni sütunları şöyle kazanır:
+
+```powershell
+python shadow/migrate_ledgers.py          # önce görmek istersen --dry-run
+```
+
+**`claude`'u nereden başlattığın hatırlaman gereken bir kural değil.** Gölge kolu çalışma
+dizininin bir kopyasının içinde cevap verir, yani o dizin kopyalanabilir olmalı — ve buna bir
+kural değil, bir ön tarama karar verir. Ön tarama kopyalama fonksiyonunun kendisi olduğu için
+kopyalamanın reddedeceği bir ağaca asla evet diyemez; boyut da tek başına belirleyici değil:
+`max_file_mb` üstündeki dosyalar sayılmadan eleniyor. Varsayılan limitlerde 885 dosya / 56 MB'lık
+bir proje sığıyor, **bir üst dizini** de sığıyor (1.649 dosya / 399 MB), ev dizini ise genelde
+sığmıyor — biri 1.473 dosyada 600 MB tavanına çarptı, diğeri 20 saniyelik ön taramayı bitiremedi.
+
+Sığmadığında `config.json` içindeki `project_roots` nerede koşulacağını söylüyor; istem atılmıyor,
+ölçülüyor. Sessizce değil: satır `tree_root` kaydediyor ve `report.py` bunu Lea'nın kendi çalışma
+dizini ile karşılaştırıp, iki kolu farklı ağaçtan başlamış çifti diğerlerinden ayrı tutuyor.
+`project_roots` boşsa eski "atla" davranışı geri gelir. Lea'nın kendi tarafı her hâlükârda kaydeder.
 
 ## Dosyaları makineye almak
 

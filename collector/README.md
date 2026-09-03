@@ -33,12 +33,29 @@ number, or set `"enabled": false` to stop entirely.
 ~/.claude/hooks/          shadow-enqueue.js, shadow-collect.js, shadow-hidden-launch.vbs, lea.js
 ~/.claude/shadow/         the runner, the picker, the report, the ledgers, the run copies
 ~/.claude/shadow-dir.txt  one line, so the hooks can find that directory
-~/.claude/settings.json   three hook entries, merged - backed up first
+~/.claude/settings.json   three hook entries + autoContinueAtUsageLimit, merged - backed up first
 ```
 
 Nothing else. Your working directory is never written to: the shadow agent only ever runs
 inside `~/.claude/shadow/runs/<id>/work/`, a copy. **Nothing is uploaded.** Data leaves your
 machine only when you run `export.ps1` and send the file yourself.
+
+### The one behaviour toggle it sets, and why
+
+`autoContinueAtUsageLimit` is the only setting the installer changes that is not a hook. The
+CLI's own description of it: *"When a claude.ai usage limit stops your session, wait for the
+limit to reset and continue the task automatically. When off, the limit dialog offers the wait
+as a choice instead."* It is on by default here because a session that ends at the 5-hour limit
+loses that prompt's measurement rather than delaying it — the shadow arm's row is already
+written and Lea's turn never is, so the pair ends up half-recorded. The session has to stay
+open, and it can still pause for permission prompts. `-NoAutoContinue` leaves it alone.
+
+**Lower-priority mode is a different thing and cannot be pre-set.** The client is *offered* it
+in the rate-limit response headers, so it exists only once a limit has actually been hit; there
+is no flag, no environment variable and no settings key for it, and nothing to type before the
+offer appears. Accept it from the limit dialog, or reopen the menu with `/rate-limit-options`.
+None of this reaches the shadow arm, which is headless: its equivalent is the deferral queue and
+the stand-down after a limited run, both already in `config.json`.
 
 ## Several installs on one Anthropic account
 
@@ -47,9 +64,11 @@ if they sign in to the **same Anthropic account**, they spend the same usage win
 in `config.json` are per install and know nothing about each other, so N installs can take N
 times the intended share of one window.
 
-Divide before you deploy: with three collectors on one account, set `window_budget_usd` to $1
-and the per-model purses to about $0.70 opus / $0.30 sonnet in each. The report still fills up,
-just more slowly, and your own sessions keep the rest of the window.
+Divide before you deploy — `-InstallsOnThisAccount <n>` does it for you, dividing
+`window_budget_usd`, `daily_budget_usd` and the per-model purses by n. (`budget_usd_per_run` is
+deliberately not divided: a single run's ceiling is what keeps a real task from being cut off
+mid-work, and a truncated run is a wasted one, not a cheap one.) The report still fills up, just
+more slowly, and your own sessions keep the rest of the window.
 
 A second Windows user on the same machine needs the Claude Code CLI installed **for that user** -
 one user's profile is not readable by another. The installer checks for it and names it if it is
@@ -69,8 +88,67 @@ pwsh -File install.ps1 -Account A -InstallsOnThisAccount 2
 pwsh -File install.ps1 -Account B -InstallsOnThisAccount 2
 ```
 
-Each of the four then runs on window $1.50 / day $3 / opus $1 / sonnet $0.50 - two per account,
-so each account still gives up about a fifth of one window in total.
+Each of the four then runs on window $3 / day $5 / opus $2 / sonnet $1 / haiku $0.50 — the
+template's $6 / $10 / $4 / $2 / $1 halved, two installs per account. A measured 5-hour window
+holds $15–20 of API-priced tokens, so each account still gives up under a fifth of one.
+
+## Two Windows users on one machine, one ledger
+
+`install.ps1` sets up a machine as one contributor: the shadow directory goes under that
+profile's own `~/.claude`, and it refuses to repoint an existing one. That is right for a fresh
+machine and wrong when the two profiles are **the same person working on the same project** -
+you get two ledgers, and whichever profile you happen to start `claude` in is the only one that
+records. Use `install-user.ps1` for the second profile: it joins the first one's ledger instead
+of starting a parallel one.
+
+```powershell
+# first profile: the normal install, which creates the ledger
+pwsh -File install.ps1 -Account A -InstallsOnThisAccount 2
+
+# second profile: join that ledger rather than start another
+pwsh -NoProfile -File install-user.ps1 `
+     -TargetHome  C:\Users\<second-user> `
+     -SharedShadow C:\Users\<first-user>\.claude\shadow
+```
+
+Run it from an account that can write into the target profile - an administrator, or that user
+themselves. It backs up every file it overwrites, refuses to repoint a `shadow-dir.txt` that
+already names a different directory, and checks afterwards that every hook command it wrote
+resolves to a file that exists. Add `-WhatIf` to see the plan without touching anything.
+
+**It also switches `enabledPlugins` off in the second profile, and that is the point, not a side
+effect.** A session with plugins on is not Lea, so its rows are not Lea's rows. Both ledgers
+carry `user`, `host` and `lea_config` for the same reason: with two installs writing one file, a
+row that does not say who wrote it under which ruleset cannot be told apart from one written
+under a different account, budget or model - and a difference between installs would read as a
+difference between configs. `report.py` prints a line per install, and any row whose
+`lea_config` is not `lea` is excluded from every Lea claim rather than quietly averaged in.
+Pass `-KeepPlugins` only if you mean it.
+
+Both profiles then append to the same two CSVs, so the appends take a lock file
+(`.ledger.lock`) that the PowerShell runner and the Node hook both honour. The shared budget
+follows for free: the window and daily caps are computed from the shared `shadow.csv`, so two
+profiles on one Anthropic account cannot each spend the full share.
+
+An existing single-install ledger gains the new columns with:
+
+```powershell
+python shadow/migrate_ledgers.py          # --dry-run first if you want to see it
+```
+
+**Where you start `claude` is not a rule you have to remember.** The shadow arm answers inside a
+copy of the working directory, so that directory has to be copyable — and a probe decides whether
+it is, not a rule. The probe is the copy routine itself, so it can never approve a tree the copy
+would refuse, and size alone does not decide: files over `max_file_mb` are skipped before
+anything is counted. Against the default caps a project at 885 files / 56 MB fits and so does its
+*parent* at 1,649 files / 399 MB, while a home directory generally does not — one hit the 600 MB
+cap at 1,473 files, another did not finish the 20 s probe.
+
+When it does not fit, `project_roots` in `config.json` says where to run instead, so the prompt is
+measured rather than dropped. Never silently: the row records `tree_root` and `report.py` compares
+it against Lea's own working directory, keeping a pair whose arms started from different trees
+apart from one whose arms did not. Empty `project_roots` restores the older skip-instead
+behaviour. Lea's own side of the ledger records either way.
 
 ## Getting the files onto the machine
 

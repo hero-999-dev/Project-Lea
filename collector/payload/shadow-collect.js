@@ -30,6 +30,44 @@ const PRICE = {                       // $ per token: cache-write, cache-read, o
   sonnet: { cw: 6.01e-6, cr: 0.300e-6, out: 15.03e-6 },
 };
 
+// Two Windows users on one machine point at one shadow directory, so two processes can reach
+// this line at once. A torn row is the one thing a ledger cannot survive, so appends go through
+// a lock file both writers understand - the PowerShell runner takes the same one.
+const LOCK = path.join(SHADOW, ".ledger.lock");
+
+function sleepSync(ms) {
+  try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); } catch {}
+}
+
+function appendLocked(file, line) {
+  const deadline = Date.now() + 3000;
+  let held = false;
+  while (Date.now() < deadline) {
+    try { fs.closeSync(fs.openSync(LOCK, "wx")); held = true; break; } catch {}
+    // A lock older than the longest write anyone here does is a crashed writer, not a busy one.
+    try { if (Date.now() - fs.statSync(LOCK).mtimeMs > 10000) fs.unlinkSync(LOCK); } catch {}
+    sleepSync(25);
+  }
+  try { fs.appendFileSync(file, line, "utf8"); }
+  finally { if (held) { try { fs.unlinkSync(LOCK); } catch {} } }
+}
+
+// Which ruleset actually produced this row. A second install that still has its plugins on is
+// not running Lea, and a row from it must not be filed under Lea's name - that is the one
+// failure a benchmark cannot survive, because the row still looks like evidence.
+function liveConfig() {
+  try {
+    const home = process.env.USERPROFILE || process.env.HOME || "";
+    const s = JSON.parse(fs.readFileSync(path.join(home, ".claude", "settings.json"), "utf8"));
+    const plugins = Object.values(s.enabledPlugins || {}).filter(Boolean).length;
+    const starts = JSON.stringify((s.hooks && s.hooks.SessionStart) || []);
+    const hasLea = /lea\.js/i.test(starts);
+    if (hasLea && plugins === 0) return "lea";
+    if (hasLea) return "lea+" + plugins + "plugins";
+    return plugins ? "other+" + plugins + "plugins" : "other";
+  } catch { return "unknown"; }
+}
+
 function priceOf(model) {
   const m = (model || "").toLowerCase();
   if (m.includes("opus")) return PRICE.opus;
@@ -68,6 +106,12 @@ function sessionCost(transcriptPath) {
   return { total, out, turns, model, cr, inp };
 }
 
+// `user` and `host` are not bookkeeping: with two installs writing one ledger, a row that does
+// not say who wrote it cannot be told apart from one written under a different account, budget
+// or model, and a difference between installs would read as a difference between configs.
+const LEA_HEADER = "id,when,model,cost_usd,turns,output_tokens,cwd," +
+  "input_tokens,cache_read_tokens,turns_before,user,host,lea_config\n";
+
 function csvRow(values) {
   return values.map((v) => {
     const s = v === undefined || v === null ? "" : String(v);
@@ -85,8 +129,16 @@ function main(input) {
   try { pointer = JSON.parse(fs.readFileSync(pointerPath, "utf8")); } catch { return; }
   const runDir = path.join(SHADOW, "runs", pointer.id);
   if (!fs.existsSync(runDir)) return;
-  if (fs.existsSync(path.join(runDir, "lea.recorded"))) return;   // one row per prompt
 
+  // There used to be a "one row per prompt" gate here. It had to go once the enqueue hook
+  // stopped letting Claude Code's own auto-continue prompts move the pointer: the work that
+  // finishes a task after a usage limit lifts now belongs to the prompt that started it, and it
+  // arrives at a LATER Stop. Gating on the first row would have thrown that work away entirely -
+  // in the case that prompted this, 36 turns and $4.17 of it.
+  //
+  // Two rows for one id do not double-count, because each Stop records only what has happened
+  // since the previous one; report.py and savings.py sum them. What is guarded instead is the
+  // empty case below: a Stop that fires with no new turn writes nothing.
   const now = sessionCost(hook.transcript_path);
   if (!now) return;
 
@@ -102,6 +154,11 @@ function main(input) {
   const turnsBefore = before.turns || 0;      // how deep into the session this prompt arrived
   fs.writeFileSync(statePath, JSON.stringify(now), "utf8");
 
+  // A Stop can fire without a turn having happened - an interrupt, a permission prompt answered
+  // and abandoned. The state above is still updated, so nothing drifts; only the empty row is
+  // skipped, because a zero row in the ledger is noise a later reader has to explain away.
+  if (turns <= 0 && cost <= 0) return;
+
   // Lea's diff, taken against the copy the shadow arm started from: same ancestor, so the
   // two patches are directly comparable.
   const base = path.join(runDir, "base");
@@ -113,12 +170,13 @@ function main(input) {
 
   const csv = path.join(SHADOW, "lea.csv");
   if (!fs.existsSync(csv)) {
-    fs.writeFileSync(csv, "id,when,model,cost_usd,turns,output_tokens,cwd," +
-      "input_tokens,cache_read_tokens,turns_before\n", "utf8");
+    fs.writeFileSync(csv, LEA_HEADER, "utf8");
   }
-  fs.appendFileSync(csv, csvRow([pointer.id, new Date().toISOString().slice(0, 19).replace("T", " "),
+  appendLocked(csv, csvRow([pointer.id, new Date().toISOString().slice(0, 19).replace("T", " "),
     now.model, cost.toFixed(6), turns, outTok, pointer.cwd,
-    inTok, crTok, turnsBefore]) + "\n", "utf8");
+    inTok, crTok, turnsBefore,
+    process.env.USERNAME || process.env.USER || "",
+    process.env.COMPUTERNAME || "", liveConfig()]) + "\n");
   fs.writeFileSync(path.join(runDir, "lea.recorded"), "", "utf8");
   prune();
 }
@@ -138,6 +196,10 @@ function prune() {
   try { ids = fs.readdirSync(runs).sort(); } catch { return; }
   for (const id of ids.slice(0, Math.max(0, ids.length - keep))) {
     const dir = path.join(runs, id);
+    // A queued run is not finished, whatever patches it has. Its base/ is the ancestor the
+    // retry has to start from, and deleting that would leave a deferred run that can never
+    // produce a comparable answer - it would run against a tree Lea had already changed.
+    if (fs.existsSync(path.join(dir, "deferred.json"))) continue;
     const done = fs.existsSync(path.join(dir, "lea.patch")) &&
                  fs.existsSync(path.join(dir, "shadow.patch"));
     if (!done) continue;

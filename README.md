@@ -64,6 +64,7 @@ Two non-obvious findings that will save you time regardless of which plugins you
 | [`config/settings.json`](config/settings.json) | `~/.claude/settings.json` template — merge it, don't overwrite |
 | [`config/hooks/`](config/hooks/) | Two hand-rolled always-on `SessionStart` hooks (Node, cross-platform) |
 | [`config/skills/lean-context/`](config/skills/lean-context/) | A personal skill that routes bulky files through local converters instead of reading them raw |
+| [`collector/install-user.ps1`](collector/install-user.ps1) | Installs Lea and the shadow arm into a second Windows profile on the same machine, joined to the ledger `collector/install.ps1` already created instead of starting a parallel one |
 | [`docs/index.html`](docs/index.html) | The website version of the report — one self-contained file, opens offline |
 
 ---
@@ -82,6 +83,34 @@ clone and say:
 
 Step 0 of that file is a decision, not a command — it asks which parts you actually want,
 because the benchmark says installing all of them is the wrong default for coding work.
+
+**Two Windows users on one machine, one ledger.** Each Windows profile gets its own
+`~/.claude`, so running [`collector/install.ps1`](collector/install.ps1) on both profiles
+creates two separate ledgers, and whichever profile you happen to start `claude` in is the only
+one that records. When the two profiles are the same person on the same project, install the
+second one with [`collector/install-user.ps1`](collector/install-user.ps1) instead: it points
+that profile at the shadow directory the first install already created, so both write into the
+same ledger.
+
+```powershell
+pwsh -NoProfile -File collector\install-user.ps1 `
+     -TargetHome   C:\Users\<second-user> `
+     -SharedShadow C:\Users\<first-user>\.claude\shadow
+```
+
+Run it from an account that can write into that profile — an administrator, or the target user
+themselves — and add `-WhatIf` to see the plan without touching anything. Both profiles have to
+restart Claude Code afterwards, because the hooks read that pointer at session start. It also
+switches `enabledPlugins` off in the second profile, which is the point rather than a side
+effect: a session with plugins on is not Lea.
+
+**Why the ledger rows carry `user`, `host` and `lea_config`.** With two installs appending to
+one file, a row has to say which profile (`user`) on which machine (`host`) wrote it, and under
+which ruleset (`lea_config`). Without those columns the two installs are indistinguishable, and
+a difference *between installs* — a different account, budget, model or plugin state — reads as
+a difference *between configs*, which is the one comparison the ledger exists to make. So the
+collector's `report.py` prints a line per install, and any row whose `lea_config` is not `lea`
+is excluded from every Lea claim rather than quietly averaged in.
 
 ---
 

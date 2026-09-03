@@ -134,6 +134,11 @@ oluşur ve ölçülen kazanç kaybolur. Önce `~/.claude/settings.json` içinde 
 ölçümde `hooks` yapılandırması araçlı işte `bare`'e göre pahalıydı ve web turunda tek koşuda
 maliyeti 4.4 katına çıkardı. İstersen bırak, ama Lea'nın rakamları onlar olmadan ölçüldü.
 
+Bu rehber yalnızca Lea'nın kural setini kuruyor. Lea'yı ölçen gölge kolu — her prompt'u arka planda
+hazır bir yapılandırmayla ikinci kez cevaplayıp iki tarafın maliyetini yerel bir deftere yazan kol —
+buna dahil değil: o kol ve kendi kurulum script'leri `collector/` dizininde, ayrıntısı
+[`collector/README.md`](collector/README.md) içinde.
+
 ---
 
 ## Sorun giderme
@@ -144,6 +149,7 @@ maliyeti 4.4 katına çıkardı. İstersen bırak, ama Lea'nın rakamları onlar
 | `node: not found` benzeri hata | PATH'te node yok | `command` içinde node'un tam yolunu yaz |
 | Cevaplar hâlâ uzun | eski oturum | CLI'ı yeniden başlat; hook oturum ortasında yüklenmez |
 | Cevaplar aşırı kısa, analiz de kesiliyor | başka bir kısaltma kuralı da açık | `caveman`/`ponytail` kapalı mı diye bak — Lea'nın analiz istisnası onların kuralıyla çakışır |
+| `... hook timed out after 20s` (örn. `UserPromptSubmit hook timed out after 10s - output discarded`) | hook, `settings.json` girdisindeki `timeout` süresi içinde bitmedi ve çıktısı atıldı — yani `LEA ACTIVE` o oturuma hiç ulaşmıyor | o girdinin `timeout` değerini büyüt ve CLI'ı yeniden başlat; Lea'nın hook'u yalnızca bir metin yazdırıyor, 20 saniye yetmiyorsa yavaş açılan node'dur — `command` içine node'un tam yolunu yaz. `UserPromptSubmit`/`Stop` zaman aşımı Lea'nın değil collector'ın hook'undan gelir ([`collector/README.md`](collector/README.md)) |
 
 ---
 

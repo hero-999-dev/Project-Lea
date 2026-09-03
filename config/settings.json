@@ -64,5 +64,8 @@
   },
 
   "model": "opus",
-  "autoUpdatesChannel": "latest"
+  "autoUpdatesChannel": "latest",
+
+  "_autoContinue_comment": "Independent of which ruleset you run, and worth having either way. The CLI's own description: 'When a claude.ai usage limit stops your session, wait for the limit to reset and continue the task automatically. When off, the limit dialog offers the wait as a choice instead.' The session has to stay open, and it can still pause for permission prompts. Lower-priority mode is a different thing and cannot be set here: the client is offered it in the rate-limit response headers, so it only exists once a limit has actually been hit - accept it from the dialog, or reopen the menu with /rate-limit-options.",
+  "autoContinueAtUsageLimit": true
 }

@@ -44,6 +44,38 @@ def load(name, key='id'):
         return {r[key]: r for r in csv.DictReader(fh) if r.get(key)}
 
 
+# Summed, not last-wins. One prompt can produce more than one lea.csv row: when a usage limit
+# interrupts a task, Claude Code's own continuation finishes it at a later Stop, and that work
+# is recorded against the prompt that started it rather than against a prompt the shadow arm
+# never saw. Each Stop records only what happened since the previous one, so summing is exactly
+# right and taking the last row would silently drop the larger half of the work.
+SUMMED = ('cost_usd', 'turns', 'output_tokens', 'input_tokens', 'cache_read_tokens')
+
+
+def load_lea():
+    p = os.path.join(HERE, 'lea.csv')
+    if not os.path.exists(p):
+        return {}
+    out = {}
+    with io.open(p, encoding='utf-8-sig', newline='') as fh:
+        for r in csv.DictReader(fh):
+            rid = r.get('id')
+            if not rid:
+                continue
+            if rid not in out:
+                out[rid] = dict(r)
+                continue
+            first = out[rid]
+            for f in SUMMED:
+                try:
+                    first[f] = str(float(first.get(f) or 0) + float(r.get(f) or 0))
+                except ValueError:
+                    pass
+            # The prompt arrived once, at the depth the first row recorded; a continuation of it
+            # did not arrive again.
+    return out
+
+
 def num(row, field):
     try:
         return float(row.get(field) or '')
@@ -77,7 +109,7 @@ def ratio(a, b):
 
 
 def rows():
-    lea, shadow = load('lea.csv'), load('shadow.csv')
+    lea, shadow = load_lea(), load('shadow.csv')
     for rid in sorted(set(lea) | set(shadow)):
         l, s = lea.get(rid, {}), shadow.get(rid, {})
         prompt = ''
@@ -92,7 +124,16 @@ def rows():
             lea_turns=num(l, 'turns'), sh_turns=num(s, 'turns'),
             lea_out=num(l, 'output_tokens'), sh_out=num(s, 'output_tokens'),
             lea_in=carried(l), sh_in=carried(s),
-            depth=num(l, 'turns_before'))
+            depth=num(l, 'turns_before'),
+            # Which install produced the row. Either ledger may carry it - the shadow runner and
+            # the Stop hook write independently and one can exist without the other.
+            user=(s.get('user') or l.get('user') or ''),
+            host=(s.get('host') or l.get('host') or ''),
+            lea_config=(l.get('lea_config') or ''),
+            # Lea's cwd against the tree the shadow arm actually copied. Equal is the normal
+            # case; different means the runner had to fall back to a project_roots entry.
+            cwd=(l.get('cwd') or ''),
+            tree_root=(s.get('tree_root') or ''))
 
 
 def main():
@@ -125,8 +166,55 @@ def main():
     opening = [r for r in pairs if r['depth'] == 0]
     later = [r for r in pairs if r['depth'] is None or r['depth'] > 0]
 
+    # A pair whose two arms started from different trees is a weaker thing than one whose arms
+    # did not, and the difference has to be visible rather than averaged in. It happens when the
+    # session's own directory could not be copied and the runner fell back to a project_roots
+    # entry: the prompt is the same and the turn counts still mean something, but the two diffs
+    # no longer share an ancestor, so nothing about the files each arm changed is comparable.
+    def substituted(r):
+        root, cwd = (r.get('tree_root') or ''), (r.get('cwd') or '')
+        return bool(root) and bool(cwd) and os.path.normcase(os.path.normpath(root)) != \
+            os.path.normcase(os.path.normpath(cwd))
+
+    opening_same = [r for r in opening if not substituted(r)]
+    opening_moved = [r for r in opening if substituted(r)]
+
     print('\n%d prompt(s) recorded, %d paired, %d of those comparable.'
-          % (len(data), len(pairs), len(opening)))
+          % (len(data), len(pairs), len(opening_same)))
+    if opening_moved:
+        print('\n%d pair(s) opened their session but ran against a different tree than Lea did -'
+              % len(opening_moved))
+        print('the working directory could not be copied, so the runner used a project_roots')
+        print('entry instead. Turns and output still describe the same prompt; the two diffs do')
+        print('not share an ancestor, so what each arm changed on disk is not comparable.')
+        for r in opening_moved:
+            print('    %s  Lea in %s' % (r['when'][:16], r.get('cwd') or '?'))
+            print('    %s  shadow in %s' % (' ' * 16, r.get('tree_root') or '?'))
+
+    # More than one install can write this ledger - two Windows users on one machine share it,
+    # and each carries its own account, budget and possibly its own ruleset. Printed per install
+    # because a difference between installs would otherwise read as a difference between configs,
+    # and because a profile that is silently contributing nothing is worth seeing.
+    lea_rows = load_lea()
+    installs = {}
+    for r in lea_rows.values():
+        k = (r.get('user') or '?', r.get('lea_config') or 'lea')
+        v = installs.setdefault(k, {'n': 0, 'usd': 0.0})
+        v['n'] += 1
+        try:
+            v['usd'] += float(r.get('cost_usd') or 0)
+        except ValueError:
+            pass
+    sh_by_user = {}
+    for r in data:
+        u = (r.get('user') or '?')
+        sh_by_user[u] = sh_by_user.get(u, 0) + 1
+    if installs:
+        print('\ninstalls writing this ledger:')
+        for (user, cfg), v in sorted(installs.items()):
+            flag = '' if cfg == 'lea' else '   <- NOT Lea; these rows are excluded from any Lea claim'
+            print('  %-12s %-18s %4d Lea turns  $%8.2f   %4d shadow rows%s'
+                  % (user, cfg, v['n'], v['usd'], sh_by_user.get(user, 0), flag))
     if later:
         spent = sum(r['sh_cost'] for r in later if r['sh_cost'])
         print('\n%d pair(s) came mid-conversation, so the shadow arm was answering a prompt it'

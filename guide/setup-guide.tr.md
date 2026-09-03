@@ -54,8 +54,123 @@ Marketplace ekleme adımı yok, sadece etkinleştir:
 
 ## 2. Yeni makinede yeniden oluşturma
 
-[`config/settings.json`](../config/settings.json) dosyasını `~/.claude/settings.json` ile
-birleştir, sonra CLI'ı yeniden başlat:
+Burada artık çalışan şey **yalnız Lea** — tek bir `SessionStart` hook'u, sıfır eklenti — artı her
+istemi ikinci kez stok bir config ile cevaplayıp karşılaştırılabilir hale getiren gölge kolu. Bu
+bölümün eskiden anlattığı eklenti yığını bölümün sonunda duruyor: benchmark'ın ölçtüğü config o
+ve Lea onun *karşısında* ölçülüyor.
+
+### Hepsi tek yerde
+
+```powershell
+gh repo clone hero-999-dev/Project-Lea
+cd Project-Lea\collector
+
+# 1) Makinedeki BİRİNCİ Windows profili: Lea + gölge kolu, ve defteri O OLUŞTURUR.
+pwsh -NoProfile -File install.ps1 -Account A -InstallsOnThisAccount 1
+
+# 2) İKİNCİ Windows profili: Lea + gölge kolu, birincinin oluşturduğu deftere KATILARAK.
+#    O profile yazabilen bir hesaptan çalıştır - yönetici ya da o kullanıcının kendisi.
+pwsh -NoProfile -File install-user.ps1 `
+     -TargetHome   C:\Users\<ikinci-kullanici> `
+     -SharedShadow C:\Users\<birinci-kullanici>\.claude\shadow
+
+# 3) Hangi profilin hangi Anthropic hesabıyla girdiğini <ortak shadow>\config.json'a yaz.
+#    Yoksa ekle:
+#      "accounts": { "<birinci-kullanici>": "A", "<ikinci-kullanici>": "B" }
+
+# 4) HER İKİ profilde de CLI'ı yeniden başlat. Hook'lar kaydedince değil, oturum açılışında okunur.
+```
+
+2. adıma `-WhatIf` ekleyerek hiçbir şeye dokunmadan planı görebilirsin. İki script de üzerine
+yazdığı her dosyayı yedekler; 2. adım başka bir dizini gösteren `shadow-dir.txt`'yi yeniden
+yönlendirmeyi reddeder — o, tuttuğu satırları sahipsiz bırakırdı.
+
+### İki hesap, iki Windows kullanıcısı
+
+`-InstallsOnThisAccount` = *tek bir Anthropic hesabını kaç kurulum paylaşıyor*; `accounts` haritası
+da aynı bilginin koşucunun okuyabileceği yere yazılmış hâli. Süs değiller: 5 saatlik kullanım
+penceresi hesaba aittir, yani tek hesaptaki iki kurulum aynı pencereyi harcar ve limitleri bölmek
+zorundadır — farklı hesaplardaki iki kurulum ise harcamaz, ve onları paylaştırmak verimi boşuna
+yarıya indirir.
+
+| kurulumun | `-InstallsOnThisAccount` | `accounts` haritası |
+|---|---|---|
+| kullanıcı başına bir hesap | her birinde `1` | farklı etiket: `{"u1": "A", "u2": "B"}` |
+| iki kullanıcı tek hesapta | her birinde `2` | aynı etiket: `{"u1": "A", "u2": "A"}` |
+| iki makine, dört kurulum, iki hesap | her birinde `2` | bir çifte `A`, diğerine `B` |
+
+Koşucu yalnızca kendi etiketiyle eşleşen kurulumların harcamasını sayar. Haritada olmayan bir
+kurulum kendi hesabı sayılır; haritası hiç olmayan bir makine her satırı sayar — bu anahtar
+eklenmeden önceki davranış budur.
+
+### Hangi kurulum raporlar, hangisi sadece toplar
+
+Hepsi ikisini de yapabilir; fark yalnızca proje çalışma kopyasının o makinede olup olmadığı.
+
+```powershell
+# çalışma kopyasının olduğu makinede: rakamlar, site banner'ı ve iki rapor sayfası
+python savings.py
+python shadow\report.py         # çift çift eşleme, artı kurulum başına bir satır
+
+# yalnız toplayan makinede: defterlerini paketleyip gönder
+pwsh -File collector\export.ps1            # -IncludePatches'i yalnız diff paylaşmak istiyorsan
+#   sonra raporlayan makinede:
+python shadow\import.py <zip>
+```
+
+**Tek** makinedeki iki Windows kullanıcısının bunların hiçbirine ihtiyacı yok: zaten aynı iki
+CSV'ye yazıyorlar ve her satır `user`, `host`, `lea_config` taşıdığı için kurulumlar sonradan
+ayrılabiliyor. Export/import makineler arası içindir.
+
+### 5 saatlik limitte bitmemek
+
+İki kurulum script'i de `~/.claude/settings.json` içine **`autoContinueAtUsageLimit: true`**
+yazıyor (`-NoAutoContinue` ile kapatılır). CLI'ın kendi açıklaması: *"When a claude.ai usage limit
+stops your session, wait for the limit to reset and continue the task automatically. When off,
+the limit dialog offers the wait as a choice instead."* Oturumun açık kalması gerekiyor ve izin
+sorularında yine durabilir.
+
+**Düşük öncelik bu değil ve önceden kurulamıyor.** İstemciye rate-limit yanıt başlıklarında
+*teklif ediliyor*, yani seçenek ancak limit yendikten sonra var oluyor — bayrağı, ortam değişkeni
+ve ayar anahtarı yok, teklif gelmeden yazılacak bir şey de yok. Limit diyaloğundan al, ya da
+menüyü `/rate-limit-options` ile yeniden aç; `esc` ile iptal ettiğin otomatik devamı da o yeniden
+kurar.
+
+Gölge kolu bunların hiçbirini görmüyor: o headless `claude -p`, ona diyalog ulaşmıyor. Karşılığı
+`shadow/config.json` içinde — bütçeyle bloklanan koşu `deferred` yazılıp en eskiden başlayarak
+boşaltılıyor, ve limitli dönen her koşudan sonra runner `pause_minutes_after_limit` kadar duruyor.
+
+### Yeniden başlattıktan sonra iki şeyi kontrol et
+
+`report.py` kurulum başına bir satır basmalı ve her biri `lea` demeli — `lea_config`'i
+`other+11plugins` okunan bir profilin eklentileri hâlâ açıktır, dolayısıyla Lea çalıştırmıyordur
+ve satırları her Lea iddiasının dışında bırakılır, sessizce ortalamaya karışmaz.
+
+Statusline, gölge kolunun bu oturumla ne yapacağını söylüyor: çalışma dizini kopyalanabiliyorsa
+**`shadow`**, kopyalanamıyorsa geri dönüş işareti.
+
+**`claude`'u belirli bir yerden başlatmak zorunda değilsin.** Kol, çalışma dizininin bir
+*kopyasının* içinde cevap verir, yani o dizinin kopyalanabilir olması gerekir — ama hangi
+dizinlerin kopyalanabilir olduğuna hatırlaman gereken bir kural değil, bir ön tarama karar verir;
+üstelik ön tarama kopyalama fonksiyonunun kendisidir, dolayısıyla kopyalamanın reddedeceği bir
+ağaca asla evet diyemez. Boyut da tek başına belirleyici değil: `max_file_mb` üstündeki dosyalar
+sayılmadan önce eleniyor. Varsayılan limitlere karşı ölçüldü (15.000 dosya / 600 MB / dosya başına
+25 MB): 885 dosya / 56 MB'lık bir proje sığıyor, ve **bir üst dizini** de sığıyor — 23 büyük dosya
+elendikten sonra 1.649 dosya / 399 MB. Ev dizini genelde sığmıyor: biri 1.473 dosyada 600 MB
+tavanına çarptı, diğeri 20 saniyelik ön taramayı bitiremedi.
+
+Çalışma dizini sığmadığında `shadow/config.json` içindeki `project_roots` nerede koşulacağını
+söylüyor ve istem atılmak yerine ölçülüyor. Bu ikame asla sessiz değil: satır `tree_root` kaydeder,
+`report.py` bunu Lea'nın kendi çalışma dizini ile karşılaştırır, ve iki kolu farklı ağaçtan başlamış
+bir çift, başlamamış olandan ayrı raporlanır — tur ve çıktı sayıları hâlâ aynı istemi anlatır, ama
+her kolun diskte değiştirdiği şey artık ortak bir atadan gelmez. `project_roots`'u boş bırakırsan
+eski davranış (atlama) geri gelir. Metin istemleri ağaca hiç ihtiyaç duymaz, her yerden koşar.
+
+### Bunun yerini aldığı config
+
+Benchmark'ın ölçtüğü ve tasarruf rakamının karşısında hesaplandığı config olduğu için duruyor.
+Lea yerine onu istiyorsan [`config/settings.json`](../config/settings.json) dosyasını
+`~/.claude/settings.json` ile birleştir:
 
 ```json
 {

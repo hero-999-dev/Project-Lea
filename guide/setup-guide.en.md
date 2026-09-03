@@ -53,8 +53,126 @@ No marketplace-add step, just enable:
 
 ## 2. Reproduce on a new machine
 
-Merge [`config/settings.json`](../config/settings.json) into `~/.claude/settings.json`,
-then restart the CLI:
+What runs here now is **Lea alone** — one `SessionStart` hook, no plugins — plus the shadow arm
+that answers every prompt a second time with a stock config so the two can be compared. The
+plugin stack this section used to describe is at the end of the section, kept because it is what
+the benchmark measured and what Lea is measured *against*.
+
+### The whole thing, in one place
+
+```powershell
+gh repo clone hero-999-dev/Project-Lea
+cd Project-Lea\collector
+
+# 1) FIRST Windows profile on the machine: Lea + the shadow arm, and it CREATES the ledger.
+pwsh -NoProfile -File install.ps1 -Account A -InstallsOnThisAccount 1
+
+# 2) SECOND Windows profile: Lea + the shadow arm, JOINING the ledger the first one made.
+#    Run it from an account that can write into that profile - an administrator, or that user.
+pwsh -NoProfile -File install-user.ps1 `
+     -TargetHome   C:\Users\<second-user> `
+     -SharedShadow C:\Users\<first-user>\.claude\shadow
+
+# 3) Say which Anthropic account each profile signs in with, in <shared shadow>\config.json.
+#    Add it if it is not there:
+#      "accounts": { "<first-user>": "A", "<second-user>": "B" }
+
+# 4) Restart the CLI in BOTH profiles. Hooks are read at session start, not on save.
+```
+
+Add `-WhatIf` to step 2 to see the plan without touching anything. Both scripts back up every
+file they overwrite, and step 2 refuses to repoint a `shadow-dir.txt` that already names a
+different directory — that would orphan whatever rows it is holding.
+
+### Two accounts, two Windows users
+
+`-InstallsOnThisAccount` is *how many installs share one Anthropic account*, and the `accounts`
+map is the same fact written where the runner can read it. They are not decoration: a 5-hour
+usage window belongs to the account, so two installs on one account spend the same window and
+have to divide the caps, while two on different accounts do not — and making those share would
+halve the yield for nothing.
+
+| your setup | `-InstallsOnThisAccount` | `accounts` map |
+|---|---|---|
+| one account per Windows user | `1` on each | different labels: `{"u1": "A", "u2": "B"}` |
+| both users on one account | `2` on each | same label: `{"u1": "A", "u2": "A"}` |
+| four installs, two accounts, two machines | `2` on each | `A` for the pair, `B` for the other |
+
+The runner counts spend only from installs whose label matches its own. An install missing from
+the map is treated as its own account; a machine with no map counts every row, which is the
+behaviour from before the key existed.
+
+### Which install reports, and which just collects
+
+Any install can do either — the difference is only whether the project checkout is on that
+machine.
+
+```powershell
+# on the machine with the checkout: the numbers, the site banner and both report pages
+python savings.py
+python shadow\report.py         # the pair-by-pair join, plus one line per install
+
+# on a collecting machine: package its ledgers and send them
+pwsh -File collector\export.ps1            # add -IncludePatches only if you mean to share diffs
+#   then, back on the reporting machine:
+python shadow\import.py <zip>
+```
+
+Two Windows users on **one** machine need none of that: they already write the same two CSVs, and
+every row carries `user`, `host` and `lea_config` so the installs stay separable afterwards.
+Export/import is for crossing machines.
+
+### Not ending at the 5-hour limit
+
+Both installers set **`autoContinueAtUsageLimit: true`** in `~/.claude/settings.json`
+(`-NoAutoContinue` opts out). The CLI describes it as: *"When a claude.ai usage limit stops your
+session, wait for the limit to reset and continue the task automatically. When off, the limit
+dialog offers the wait as a choice instead."* The session must stay open, and it can still pause
+for permission prompts.
+
+**Lower-priority mode is not this, and cannot be armed in advance.** The client is *offered* it
+through the rate-limit response headers, so the option exists only after a limit has been hit —
+there is no flag, no environment variable and no settings key, and nothing to type before the
+offer appears. Take it from the limit dialog, or reopen the menu with `/rate-limit-options`,
+which also re-arms automatic continue if you cancelled a wait with `esc`.
+
+The shadow arm sees none of this: it is headless `claude -p`, so no dialog reaches it. Its
+equivalent is in `shadow/config.json` — a run blocked by budget is written `deferred` and drained
+oldest-first, and the runner stands down `pause_minutes_after_limit` after any run that comes
+back limited.
+
+### After the restart, check two things
+
+`report.py` should print a line per install, and each should say `lea` — a profile whose
+`lea_config` reads `other+11plugins` still has its plugins on, is therefore not running Lea, and
+its rows are excluded from every Lea claim rather than quietly averaged in.
+
+The statusline says what the shadow arm will do with this session: **`shadow`** when the working
+directory can be copied, and a fallback marker when it cannot.
+
+**You do not have to start `claude` anywhere in particular.** The arm answers inside a *copy* of
+the working directory, so that directory has to be copyable — but which directories are is
+decided by a probe, not by a rule you remember, and the probe is the copy routine itself, so it
+can never approve a tree the copy would then refuse. Size alone does not decide it either: files
+over `max_file_mb` are skipped before anything is counted. Measured against the default caps
+(15,000 files / 600 MB / 25 MB per file): a project at 885 files / 56 MB fits, and so does its
+*parent* at 1,649 files / 399 MB once 23 oversized files are skipped. A home directory generally
+does not — one reached the 600 MB cap at 1,473 files, another did not finish inside the 20-second
+probe.
+
+When the working directory does not fit, `project_roots` in `shadow/config.json` names where to
+run instead, and the prompt is measured rather than discarded. That substitution is never silent:
+the row records `tree_root`, and `report.py` compares it against Lea's own working directory, so
+a pair whose two arms started from different trees is reported apart from one whose arms did not
+— their turn and output counts still describe the same prompt, but what each arm changed on disk
+no longer shares an ancestor. Leave `project_roots` empty to keep the older behaviour of skipping.
+Prose prompts need no tree at all and run from anywhere.
+
+### What this replaced
+
+Kept because it is the configuration the benchmark measured, and the one the savings figure is
+computed against. Merge [`config/settings.json`](../config/settings.json) into
+`~/.claude/settings.json` only if you want that config rather than Lea:
 
 ```json
 {

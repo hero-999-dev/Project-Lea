@@ -225,6 +225,49 @@ true for the behaviour it checks.**
 
 ---
 
+## Lea v7 vs v8 — the only quality comparison with both arms measured on the same day
+
+`lea` is a sixth configuration that came out of these rounds rather than into them: one
+`SessionStart` ruleset of ~180 tokens, no plugins, no dependencies. v8 rewrites a single
+paragraph of v7 — the exception that overrides its own word budget — from a permission
+(`your analysis is unlimited`) into an obligation (`checking every clause of it against the
+implementation is required, not optional`). The size was held deliberately: 220 words → 226.
+Nothing else changed.
+
+Both versions were then run on the hard bug fix of round 3, Sonnet, **n=20 per arm**:
+
+| measure | v7 `lea` | v8 `lea-v8` | difference |
+|---|---:|---:|---|
+| hard-round accuracy — pooled, n=20 | 4/20 | **13/20** | Fisher p=0.010 |
+| hard-round accuracy — same day, 29 Aug | 2/14 | **10/15** | Fisher p=0.008 |
+| median cost | 0.0954 | 0.0888 | −7% |
+| median wall clock | 211 s | 135 s | −36% |
+| median input tokens | 165,608 | 132,474 | −20% |
+| median output tokens | 1,188 | 1,524 | +28% |
+| prose round median — same day, n=5 | 0.0624 | **0.0563** | −10%, p=0.22 |
+| prose round output tokens, median | 3,322 | 2,466 | −26% |
+
+**v8 reads less and says more, and is cheaper for it.** It emits 28% more output than v7 and
+still has the lower median cost, because its input is 20% smaller. Round 3's volume law holds
+inside both arms — correct runs land at 1.8–2.0k output tokens, wrong ones at 0.8–1.2k — but
+the volume *distributions* do not separate statistically (Mann-Whitney p=0.25). What moved is
+accuracy, not verbosity.
+
+At n=5 the two versions looked tied: 1/5 versus 3/5, p=0.52. The difference only became
+visible at the n=20 per arm the plan called for.
+
+**This is the only quality comparison with both arms measured on the same day, and the only
+quality finding that reproduced.** That design was forced by what happened to the others:
+v7's own 4/5 on the hard round was measured once, on 25 Aug; the byte-identical config scored
+1/5 on 26 Aug and 2/14 on 29 Aug, at almost unchanged cost (0.0897 → 0.0882 → 0.1004).
+**No quality number resting on a single day was reproduced** — read every one of them, in
+every round above, as a measurement of that day rather than of the config.
+
+*Caveats:* v8 was measured on the hard round (n=20) and the prose round (n=5) only. The easy
+tool round, the website round and the Opus side are still v7 numbers.
+
+---
+
 ## Method notes worth reusing
 
 - **Config isolation:** `--setting-sources project` from a directory with no project
@@ -275,7 +318,7 @@ spread was already 2×.
 
 - One model (Sonnet) in every round.
 - One task per round.
-- Small n (3–5).
+- Small n (3–5) in the four rounds; the v7/v8 comparison is the exception, at n=20 per arm.
 - Round 3's quality signal rests on a single hidden defect.
 - Cost figures are API pricing at the time of the run, on one account.
 

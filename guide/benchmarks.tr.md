@@ -225,6 +225,49 @@ kod" ifadesi yalnızca ölçtüğü davranış için doğru.**
 
 ---
 
+## Lea v7 ile v8 — iki kolu da aynı gün ölçülmüş tek kalite karşılaştırması
+
+`lea`, bu turlara girmiş değil bu turlardan çıkmış altıncı bir yapılandırma: tek bir
+`SessionStart` kural seti, ~180 token, plugin yok, bağımlılık yok. v8, v7'nin tek bir
+paragrafını — kendi kelime bütçesini geçersiz kılan istisna maddesini — izinden
+(`your analysis is unlimited`) yükümlülüğe (`checking every clause of it against the
+implementation is required, not optional`) çeviriyor. Uzunluk bilerek korundu: 220 kelime →
+226. Başka hiçbir şey değişmedi.
+
+İki sürüm sonra Tur 3'ün zor bug fix görevinde, Sonnet'te, **kol başına n=20** ile koşturuldu:
+
+| ölçüm | v7 `lea` | v8 `lea-v8` | fark |
+|---|---:|---:|---|
+| zor tur doğruluğu — havuzlanmış, n=20 | 4/20 | **13/20** | Fisher p=0,010 |
+| zor tur doğruluğu — aynı gün, 29 Ağu | 2/14 | **10/15** | Fisher p=0,008 |
+| medyan maliyet | 0,0954 | 0,0888 | −%7 |
+| medyan duvar saati | 211 sn | 135 sn | −%36 |
+| medyan input token | 165.608 | 132.474 | −%20 |
+| medyan output token | 1.188 | 1.524 | +%28 |
+| metin turu medyanı — aynı gün, n=5 | 0,0624 | **0,0563** | −%10, p=0,22 |
+| metin turu output medyanı | 3.322 | 2.466 | −%26 |
+
+**v8 daha az okuyor, daha çok söylüyor — ve bu yüzden daha ucuz.** v7'den %28 fazla çıktı
+üretmesine rağmen medyan maliyeti düşük, çünkü input'u %20 küçük. Tur 3'ün hacim yasası iki
+kolun içinde de tutuyor — doğru koşular 1,8–2,0 bin output token, yanlışlar 0,8–1,2 bin — ama
+hacim *dağılımları* istatistiksel olarak ayrışmıyor (Mann-Whitney p=0,25). Hareket eden şey
+doğruluk, laf kalabalığı değil.
+
+n=5'te iki sürüm berabere görünüyordu: 1/5'e karşı 3/5, p=0,52. Fark ancak planın öngördüğü
+kol başına n=20'de görünür oldu.
+
+**Bu, iki kolu da aynı gün ölçülmüş tek kalite karşılaştırması, ve tekrarlanan tek kalite
+bulgusu.** Bu tasarımı diğerlerinin başına gelen zorunlu kıldı: v7'nin zor turdaki 4/5'i tek
+bir kez, 25 Ağustos'ta ölçüldü; bayt bayt aynı config 26 Ağustos'ta 1/5, 29 Ağustos'ta 2/14
+aldı, üstelik maliyet neredeyse hiç oynamadan (0,0897 → 0,0882 → 0,1004). **Tek bir güne
+dayanan hiçbir kalite rakamı tekrarlanmadı** — yukarıdaki turların hepsinde, o rakamların her
+birini config'in değil o günün ölçümü sayın.
+
+*Kısıtlar:* v8 yalnızca zor turda (n=20) ve metin turunda (n=5) ölçüldü. Kolay tool turu,
+website turu ve Opus tarafı hâlâ v7 rakamlarıdır.
+
+---
+
 ## Tekrar kullanmaya değer yöntem notları
 
 - **Config izolasyonu:** proje ayarı olmayan bir dizinden `--setting-sources project`, artı
@@ -275,7 +318,7 @@ yazımı ve açıklayıcı soru gerektirmeyen bir görev seç, tool'lar reddedil
 
 - Her turda tek model (Sonnet).
 - Tur başına tek görev.
-- Küçük n (3–5).
+- Dört turda küçük n (3–5); istisna, kol başına n=20 ile ölçülen v7/v8 karşılaştırması.
 - Tur 3'ün kalite sinyali tek bir gizli kusura dayanıyor.
 - Maliyet rakamları, koşu anındaki API fiyatları ve tek bir hesap üzerinden.
 

@@ -27,7 +27,28 @@ if (-not (Test-Path (Join-Path $shadow 'config.json'))) {
 }
 if (-not $OutDir) { $OutDir = [Environment]::GetFolderPath('Desktop') }
 
-$tag = "{0}-{1}-{2}" -f $env:COMPUTERNAME, $env:USERNAME, (Get-Date -Format 'yyyyMMdd-HHmm')
+# The pool needs to tell machines apart. It does NOT need to know their names, and a machine name
+# is the one thing that must never travel: it is a hostname, it identifies a box on a network, and
+# this export is a file the user hands to someone else or carries on a removable drive. So the
+# name is replaced everywhere by a short digest of itself - stable, so every row from one machine
+# still groups together and a re-import still matches, and one-way, so the name cannot be read
+# back out. `user` stays: a local account name separates two installs on one machine and says
+# nothing about how to reach anything.
+#
+# Defined here rather than beside its other caller because PowerShell runs a script top to bottom
+# and the zip name below is the first thing that needs it.
+function Anonymise-Host([string]$value) {
+    if (-not $value) { return '' }
+    $md5 = [Security.Cryptography.MD5]::Create()
+    try {
+        $b = $md5.ComputeHash([Text.Encoding]::UTF8.GetBytes($value.ToLowerInvariant()))
+        return 'm-' + (($b[0..3] | ForEach-Object { $_.ToString('x2') }) -join '')
+    }
+    finally { $md5.Dispose() }
+}
+$MachineId = Anonymise-Host $env:COMPUTERNAME
+
+$tag = "{0}-{1}-{2}" -f $MachineId, $env:USERNAME, (Get-Date -Format 'yyyyMMdd-HHmm')
 $tag = ($tag -replace '[^A-Za-z0-9\-]', '_')
 $stage = Join-Path ([IO.Path]::GetTempPath()) "lea-export-$tag"
 if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
@@ -35,6 +56,7 @@ New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
 $cut = [datetime]::MinValue
 if ($Since) { $cut = [datetime]::Parse($Since) }
+
 
 function Filter-Csv([string]$name) {
     $src = Join-Path $shadow $name
@@ -45,6 +67,9 @@ function Filter-Csv([string]$name) {
             $w = [datetime]::MinValue
             [datetime]::TryParse($_.when, [ref]$w) -and $w -ge $cut
         })
+    }
+    foreach ($r in $rows) {
+        if ($r.PSObject.Properties['host']) { $r.host = Anonymise-Host $r.host }
     }
     if ($rows.Count) { $rows | Export-Csv (Join-Path $stage $name) -NoTypeInformation -Encoding utf8 }
     return $rows.Count
@@ -81,7 +106,7 @@ foreach ($run in Get-ChildItem (Join-Path $shadow 'runs') -Directory -ErrorActio
 # sources cannot be read: model, config and budgets all differ per machine.
 $cfg = Get-Content (Join-Path $shadow 'config.json') -Raw | ConvertFrom-Json
 @{
-    machine       = $env:COMPUTERNAME
+    machine       = $MachineId
     user          = $env:USERNAME
     account       = $cfg.account_label
     installs_on_account = $cfg.installs_on_this_account

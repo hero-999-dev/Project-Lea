@@ -1,8 +1,8 @@
 {
   "enabled": true,
   "_comment": "Collector install. Every prompt you answer is answered a second time in the background, in a copy of your working directory, by a stock configuration - so the two can be compared. Nothing here touches your real directory, nothing is sent anywhere, and nothing leaves this machine until you run export.ps1 yourself. Set enabled to false to stop it; the hooks then do nothing at all.",
-  "budget_usd_per_run": 3.0,
-  "daily_budget_usd": 6.0,
+  "budget_usd_per_run": 4.0,
+  "daily_budget_usd": 10.0,
   "min_prompt_chars": 12,
   "pair_session_start_only": true,
   "_pairing_comment": "A pair is a measurement only when both arms were given the same problem. That is true of the first prompt of a session and of almost nothing after it: \"commit et\" means something to Lea, which has the conversation, and nothing to a shadow run starting from an empty context in a copy of the directory. Measured before this was turned on: 5 pairs collected, 5 of them mid-conversation, 0 comparable, $5.74 spent. With it on, the hook marks the prompt that opened the session - the transcript has no assistant record yet - and everything else is skipped before anything is copied. min_prompt_chars drops to 12 in the same breath: it is there to keep \"ok\" out of the ledger, and at 40 it was discarding session openers like \"dedigin gibi yeniden baslattim\", which are now the only prompts that run. Acknowledgements are skip_prompt_patterns' job. Set this to false to collect mid-conversation runs anyway - they are still a real stock config answering a real prompt, they just cannot be paired with Lea's turn.",
@@ -40,8 +40,13 @@
       "*.pdf"
     ],
     "_exclude_comment": ".claude, .ssh, .aws, .gnupg and AppData are never task material and would otherwise be handed to an agent running with bypassPermissions.",
-    "max_scan_seconds": 180
+    "max_scan_seconds": 180,
+    "max_probe_seconds": 20
   },
+  "project_roots": [],
+  "_project_roots_comment": "Where the shadow arm works when the session's own directory cannot be copied. Empty means the old behaviour: such a prompt is skipped. Fill it with the directories you actually work in - install.ps1 -ProjectRoot C:\\a,C:\\b does it for you (comma-separated, not a repeated flag). Why it matters: only the FIRST prompt of a session can be paired at all, so a session opened in a directory that will not copy contributes nothing, and that is one whole session lost rather than one prompt. Which directories will not copy is not obvious from their size, because files over max_file_mb are skipped before anything is counted - measured on the machine this came from, a project was 885 files / 56 MB and its whole parent directory 1,649 files / 399 MB, both fitting, while a home directory hit the 600 MB cap at 1,473 files. So a parent directory is usually fine; a home directory usually is not. The first entry that exists and fits wins, and the probe IS the copy routine, so it can never approve a tree the copy would then refuse. NOTHING HERE IS SILENT: the row records tree_root and report.py compares it against Lea's own working directory, so a pair whose two arms started from different trees is reported apart from one whose arms did not.",
+  "claude_path": "",
+  "_claude_path_comment": "Where the Claude Code binary is, for the case where it is not under the profile that runs the hooks - two Windows profiles on one machine, config in one and the binary in the other. Leave it empty and the runner tries ~/.local/bin/claude.exe, then LOCALAPPDATA, then PATH, which covers a normal install. The key exists because that path used to be hardcoded into run-shadow.ps1 as one machine's absolute path: it named a user and was dead on every other machine.",
   "model": "match",
   "model_wait_seconds": 90,
   "_model_comment": "\"match\" means the shadow arm runs whatever model the session is running. The only place that id is written is an assistant record in the session's transcript, so the hook reads it there. On the first prompt of a session no such record exists yet and settings.json is all there is - an alias at best (\"opus\", not \"claude-opus-5\"), and simply wrong when the session was started with --model. That value is passed as a guess and the runner waits up to model_wait_seconds for the real one before it spends anything, which is what keeps one model from appearing under two names in the ledger. Anything other than \"match\" pins the shadow arm to that model and makes the comparison model-vs-model as much as config-vs-config - which is not what this is for; a pin overrides everything the hook works out. An Opus shadow run costs about 2.5x a Sonnet one, so a matched Opus session buys fewer runs out of window_budget_usd.",
@@ -51,14 +56,16 @@
   ],
   "keep_trees_last_n": 3,
   "_keep_comment": "Each run stores two copies of the project (base and work). Only the newest N runs keep them; older runs are pruned down to prompt.txt, result.json and the two patches, which is what a later comparison actually reads.",
+  "accounts": {},
+  "_accounts_comment": "Which Anthropic account each Windows install signs in with, as <windows user>: <label>. Labels are names you choose, never credentials; only equality matters. Fill this in when more than one install writes this ledger - install-user.ps1 joins a second Windows profile to it. The budget below is enforced per account, which is the only way it can be right: a 5-hour usage window belongs to the account, so two installs on ONE account spend the same window and must share these caps, while two on DIFFERENT accounts do not, and making those share would halve the yield for nothing. An install absent from this map is treated as its own account, which is what a single-install machine wants and why leaving this empty is safe.",
   "window_hours": 5,
-  "window_budget_usd": 3.0,
+  "window_budget_usd": 6.0,
   "pause_minutes_after_limit": 60,
   "_budget_comment": "Sized against what real work costs, not against a round number. Measured Opus project cells ran $2.90-$8.10, so a $2 ceiling would have cut most of them off mid-task and recorded the stub as if it were a result. $4 completes the ordinary range; anything above it is cut off by the API, comes back as subtype error_max_budget_usd, and is written to the ledger as status 'truncated' - counted, never compared. If truncated rows pile up, the prompts are bigger than the shadow budget: raise budget_usd_per_run and the purses together.",
   "window_budget_by_model": {
-    "opus": 2.0,
-    "sonnet": 1.0,
-    "haiku": 0.5
+    "opus": 4.0,
+    "sonnet": 2.0,
+    "haiku": 1.0
   },
   "_window_comment": "window_budget_usd is the ceiling for all models together (about a third of a measured 5-hour window); window_budget_by_model stops one model from eating it. The split protects sample yield, not money: each model is its own dataset, and an Opus-heavy week would otherwise leave the Sonnet arm empty. Opus runs cost roughly twice a Sonnet one, so these buy a comparable number of each.",
   "defer_when_over_budget": true,

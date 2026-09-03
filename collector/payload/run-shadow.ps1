@@ -51,8 +51,17 @@ $Lock = Join-Path $Shadow '.lock'
 # Both resolved rather than hardcoded: this script ships to other machines and other users.
 $BenchCfg = if (Test-Path (Join-Path $Shadow 'cfg')) { Join-Path $Shadow 'cfg' }
             else { Join-Path $HOME '.claude\bench\cfg' }
+$Sep = [IO.Path]::DirectorySeparatorChar
+
+# Loaded before the CLI is resolved, because the resolution now reads a key out of it.
+$cfg = Get-Content (Join-Path $Shadow 'config.json') -Raw | ConvertFrom-Json
+
+# config.json's `claude_path` first, for a machine where the binary is not under the profile
+# running the hooks - which is the case here, and used to be a hardcoded absolute path with a
+# user name in it. That is two faults in a file other people install: it names somebody, and it
+# is dead on every other machine. A config key says the same thing without shipping it.
 $Claude = @(
-    'C:\Users\<name>\.local\bin\claude.exe',
+    $cfg.claude_path,
     (Join-Path $HOME '.local\bin\claude.exe'),
     (Join-Path $env:LOCALAPPDATA 'Programs\claude\claude.exe')
 ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
@@ -61,32 +70,68 @@ if (-not $Claude) {
     # better than not running at all.
     $Claude = (Get-Command claude -ErrorAction SilentlyContinue).Source
 }
-$Sep = [IO.Path]::DirectorySeparatorChar
 
-$cfg = Get-Content (Join-Path $Shadow 'config.json') -Raw | ConvertFrom-Json
+# Shared with the tests, so neither side has to build code from text. See lib.ps1.
+. (Join-Path $PSScriptRoot 'lib.ps1')
+
+# One shadow run at a time PER ACCOUNT, not per ledger. The lock exists because two runs on one
+# account race for the same 5-hour usage window and distort each other's rows - which is not true
+# of two runs on different accounts, and making those queue behind one another throws away a pair
+# for nothing. Same rule as the budget, read off the same map.
+$AccountLabel = Get-AccountLabel
+if ($AccountLabel) {
+    $Lock = Join-Path $Shadow ".lock-$($AccountLabel -replace '[^A-Za-z0-9_-]', '_')"
+}
 
 function Write-Log([string]$m) {
     "[{0}] {1} {2}" -f (Get-Date -Format 'MM-dd HH:mm:ss'), $Id, $m | Add-Content -Path $Log
 }
 
-function Write-Row([hashtable]$r) {
-    if (-not (Test-Path $Csv)) {
-        ('id,when,config,model,rule,status,cost_usd,turns,output_tokens,duration_s,' +
-         'files_copied,note,input_tokens,cache_read_tokens') |
-            Set-Content $Csv -Encoding utf8
+# Two Windows users on one machine can point at one shadow directory, so two processes can be
+# writing here at once. A torn row is the one thing a ledger cannot survive, so the append takes
+# a lock file - the Node Stop hook takes the same one, by the same name.
+$LedgerLock = Join-Path $Shadow '.ledger.lock'
+
+function Add-LineLocked([string]$Path, [string]$Line) {
+    $held = $null
+    $deadline = (Get-Date).AddSeconds(3)
+    while ((Get-Date) -lt $deadline) {
+        try { $held = [IO.File]::Open($LedgerLock, 'CreateNew', 'Write', 'None'); break } catch {}
+        # A lock older than the longest write anyone here does is a crashed writer, not a busy one.
+        try {
+            if (((Get-Date) - (Get-Item $LedgerLock).LastWriteTime).TotalSeconds -gt 10) {
+                Remove-Item $LedgerLock -Force -ErrorAction SilentlyContinue
+            }
+        } catch {}
+        Start-Sleep -Milliseconds 25
     }
+    try { $Line | Add-Content $Path -Encoding utf8 }
+    finally {
+        if ($held) { $held.Dispose(); Remove-Item $LedgerLock -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+# `user` and `host` are not bookkeeping: with two installs writing one ledger, a row that does
+# not say who wrote it cannot be told apart from one written under a different account, budget
+# or model, and a difference between installs would read as a difference between configs.
+# tree_root is the directory the shadow arm actually copied. It is usually the session's cwd, and
+# when it is not, that is exactly what a reader has to know: report.py compares it against Lea's
+# own cwd and keeps pairs whose arms started from different trees apart from the ones that did not.
+$CsvHeader = 'id,when,config,model,rule,status,cost_usd,turns,output_tokens,duration_s,' +
+             'files_copied,note,input_tokens,cache_read_tokens,user,host,tree_root'
+
+function Write-Row([hashtable]$r) {
+    if (-not (Test-Path $Csv)) { $CsvHeader | Set-Content $Csv -Encoding utf8 }
     $fields = @($r.id, $r.when, $r.config, $r.model, $r.rule, $r.status, $r.cost, $r.turns,
-                $r.output, $r.duration, $r.files, $r.note, $r.input, $r.cacheRead) |
+                $r.output, $r.duration, $r.files, $r.note, $r.input, $r.cacheRead,
+                $env:USERNAME, $env:COMPUTERNAME, $r.treeRoot) |
               ForEach-Object {
         $v = "$_"
         if ($v -match '[",]') { '"' + $v.Replace('"', '""') + '"' } else { $v }
     }
-    ($fields -join ',') | Add-Content $Csv -Encoding utf8
+    Add-LineLocked $Csv ($fields -join ',')
 }
 
-function Get-Family([string]$m) {
-    switch -Regex ($m) { 'opus' { 'opus' } 'haiku' { 'haiku' } default { 'sonnet' } }
-}
 
 # Is this plugin actually on this machine? Installed means on disk, not merely recorded:
 # a pruned or hand-deleted cache leaves the entry in installed_plugins.json behind.
@@ -130,7 +175,13 @@ function Resolve-SessionModel([string]$transcript, [int]$waitSeconds) {
             if ($lines[$i] -notlike '*"model"*') { continue }
             $rec = $null
             try { $rec = $lines[$i] | ConvertFrom-Json } catch { continue }
-            if ($rec.message -and $rec.message.model) { return [string]$rec.message.model }
+            if (-not ($rec.message -and $rec.message.model)) { continue }
+            # "<synthetic>" is Claude Code's own injected record - a notice, not an answer, and
+            # not a model id anything can be run with. The enqueue hook already skips it; this
+            # reader did not, and wrote `model=<synthetic>` into a real ledger row on
+            # 2026-09-02. Keep looking backwards for a real one.
+            $m = [string]$rec.message.model
+            if ($m -match '^claude-') { return $m }
         }
         if ((Get-Date) -ge $deadline) { return $null }
         Start-Sleep -Seconds 2
@@ -152,11 +203,18 @@ function Update-RunModel {
     $script:modelIsGuess = $false
 }
 
-# Returns the reason this run cannot go ahead right now, or $null if it can. Budget reasons are
-# temporary - the caller defers on those; a usage limit is one too.
+
 function Get-BlockReason([string]$model) {
     if (-not (Test-Path $Csv)) { return $null }
     $ledger = @(Import-Csv $Csv)
+    # One ledger can hold two installs. The budget is a property of the usage window, and the
+    # window belongs to the Anthropic account - so spend is counted per account, not per file.
+    # A row with no user predates the column, and on that machine there was only one install to
+    # have written it, so it counts as ours rather than being dropped from the budget.
+    $peers = Get-AccountPeers
+    if ($peers) {
+        $ledger = @($ledger | Where-Object { -not $_.user -or $peers -contains $_.user })
+    }
     $family = Get-Family $model
 
     $today = Get-Date -Format 'yyyy-MM-dd'
@@ -189,12 +247,27 @@ function Get-BlockReason([string]$model) {
     }
 
     # A limit is a wall, not a hiccup: retrying against it spends turns and learns nothing.
+    #
+    # The wall usually says when it comes down - "You've hit your session limit - resets 5:20pm" -
+    # and using that beats guessing. A blind hour-long ladder against a three-hour limit means two
+    # doomed attempts, each of which copies the whole tree before it can be told no, and then
+    # waits up to an hour more after the quota is actually back. Read the time when it is there,
+    # fall back to the ladder when it is not.
     $pause = if ($cfg.pause_minutes_after_limit) { [double]$cfg.pause_minutes_after_limit } else { 60 }
     $cutoff = (Get-Date).AddMinutes(-$pause)
     foreach ($row in $ledger) {
         if ($row.status -ne 'limit') { continue }
         $when = [datetime]::MinValue
         if (-not [datetime]::TryParse($row.when, [ref]$when)) { continue }
+        $reset = Get-ResetTime $row.note $when
+        if ($reset) {
+            if ((Get-Date) -lt $reset) {
+                return "usage limit hit at $($when.ToString('HH:mm')), resets at $($reset.ToString('HH:mm')) - standing down until then"
+            }
+            # The reset has passed, so this row is no longer a reason to wait. Not `break`:
+            # a later row may carry a limit that has not.
+            continue
+        }
         if ($when -ge $cutoff) {
             return "a usage limit was hit at $($when.ToString('HH:mm')) - standing down for $pause min"
         }
@@ -202,44 +275,8 @@ function Get-BlockReason([string]$model) {
     return $null
 }
 
-# Copy $from into $to, honouring the caps. Returns the file count, or -1 with $script:CopyWhy set.
-function Copy-Tree([string]$from, [string]$to) {
-    New-Item -ItemType Directory -Force -Path $to | Out-Null
-    $excludeDirs = @($cfg.copy.exclude_dirs)
-    $maxFileBytes = $cfg.copy.max_file_mb * 1MB
-    $scanCap = if ($cfg.copy.max_scan_seconds) { [int]$cfg.copy.max_scan_seconds } else { 60 }
-    $total = 0; $count = 0
-    $script:CopyWhy = ''
-    $sw = [Diagnostics.Stopwatch]::StartNew()
-    try {
-        foreach ($full in [IO.Directory]::EnumerateFiles($from, '*', [IO.SearchOption]::AllDirectories)) {
-            if ($sw.Elapsed.TotalSeconds -gt $scanCap) { $script:CopyWhy = "the scan took over $scanCap s"; break }
-            $rel = $full.Substring($from.Length).TrimStart($Sep)
-            $parts = $rel.Split($Sep)
-            $skip = $false
-            foreach ($d in $excludeDirs) { if ($parts -contains $d) { $skip = $true; break } }
-            if ($skip) { continue }
-            $name = [IO.Path]::GetFileName($full)
-            foreach ($g in $cfg.copy.exclude_globs) { if ($name -like $g) { $skip = $true; break } }
-            if ($skip) { continue }
-            $len = 0
-            try { $len = (Get-Item -LiteralPath $full -Force).Length } catch { continue }
-            if ($len -gt $maxFileBytes) { continue }
-            $total += $len; $count++
-            if ($total -gt ($cfg.copy.max_total_mb * 1MB)) { $script:CopyWhy = 'over the size cap'; break }
-            if ($count -gt $cfg.copy.max_files) { $script:CopyWhy = 'over the file-count cap'; break }
-            $dest = Join-Path $to $rel
-            New-Item -ItemType Directory -Force -Path (Split-Path $dest -Parent) | Out-Null
-            Copy-Item -LiteralPath $full -Destination $dest -Force -ErrorAction SilentlyContinue
-        }
-    }
-    catch { $script:CopyWhy = "could not read the tree: $($_.Exception.Message)" }
-    if ($script:CopyWhy) {
-        Remove-Item $to -Recurse -Force -ErrorAction SilentlyContinue
-        return -1
-    }
-    return $count
-}
+
+
 
 # Run one prepared cell: pick the config, answer the prompt in a copy of base, record both.
 function Invoke-Cell([string]$cellId, [string]$dir, [string]$model, [int]$files) {
@@ -250,10 +287,15 @@ function Invoke-Cell([string]$cellId, [string]$dir, [string]$model, [int]$files)
     if (Test-Path $work) { Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue }
     Copy-Item $base $work -Recurse -Force
 
+    # The tree root travels in pick.json rather than in a script variable, because a deferred run
+    # is drained by a later invocation that resolved a different one for its own prompt.
+    $treeRoot = ''; $rootNote = ''
     $pickFile = Join-Path $dir 'pick.json'
     if (Test-Path $pickFile) {
         $pk = Get-Content $pickFile -Raw | ConvertFrom-Json
         $config = $pk.config; $rule = $pk.rule
+        if ($pk.treeRoot) { $treeRoot = $pk.treeRoot }
+        if ($pk.rootNote) { $rootNote = $pk.rootNote }
     }
     else {
         $picked = & python (Join-Path $Shadow 'pick.py') $prompt 2>$null
@@ -347,7 +389,23 @@ function Invoke-Cell([string]$cellId, [string]$dir, [string]$model, [int]$files)
             $status = 'truncated'
             $note = "cut off by the `$$($cfg.budget_usd_per_run) per-run cap - the task is bigger than the shadow budget"
         }
-        elseif ($j.is_error) { $status = 'error'; $note = "agent reported is_error ($($j.subtype))" }
+        elseif ($j.is_error) {
+            # A usage limit does not arrive as junk on stderr. It arrives as a perfectly
+            # well-formed result.json - is_error true, subtype "success", cost 0, one turn, and
+            # the message inside `result` - so the parse succeeds and the stderr check below is
+            # never reached. Recorded as 'error' it also never triggered the stand-down, which is
+            # the whole point of noticing: the runner kept firing doomed runs, each copying the
+            # whole tree first, until the quota came back hours later. Seen 2026-09-02:
+            # api_error_status 429, "You've hit your session limit - resets 5:20pm".
+            $msg = "$($j.result)".Trim()
+            if ($j.api_error_status -eq 429 -or $msg -match 'usage limit|session limit|rate limit') {
+                $status = 'limit'
+                # The message carries the reset time; keeping it verbatim is what makes the row
+                # readable later without going back to result.json.
+                $note = if ($msg) { $msg } else { 'usage limit' }
+            }
+            else { $status = 'error'; $note = "agent reported is_error ($($j.subtype))" }
+        }
         else { $status = 'ok' }
     }
     catch {
@@ -356,14 +414,36 @@ function Invoke-Cell([string]$cellId, [string]$dir, [string]$model, [int]$files)
         if ($blob -match 'usage limit|session limit') { $status = 'limit'; $note = 'usage limit' }
     }
 
-    # git diff --no-index turns two directories into one reviewable patch, no repo needed.
-    & git diff --no-index --binary -- $base $work 2>$null |
-        Set-Content (Join-Path $dir 'shadow.patch') -Encoding utf8
-    Remove-Item (Join-Path $dir 'deferred.json') -Force -ErrorAction SilentlyContinue
+    # A limit means this run has NOT happened yet, not that it is over. Everything a valid pair
+    # needs still exists - the ancestor copy is untouched and Lea's own turn is recorded against
+    # this same id - so the only missing piece is the shadow answer. Re-queue it and the next run
+    # with budget drains it; the pair completes instead of being lost to a wall.
+    #
+    # Two things went with that. No patch is written: the work tree is an unmodified copy of
+    # base, so the patch would be empty, and an empty patch is what makes prune() in
+    # shadow-collect.js treat the run as finished and delete the very base the retry needs. And
+    # deferred.json is no longer removed unconditionally - doing that dropped a DRAINED run out
+    # of the queue the moment it hit a limit, losing it twice over.
+    if ($status -eq 'limit') {
+        $q = Join-Path $dir 'deferred.json'
+        $at = (Get-Date).ToString('o')
+        # Keep the original queue time so a re-queued run still ages out on its own schedule
+        # rather than living forever by being retried.
+        if (Test-Path $q) { try { $at = (Get-Content $q -Raw | ConvertFrom-Json).at } catch {} }
+        @{ id = $cellId; model = $model; files = $files; at = $at; why = $note } |
+            ConvertTo-Json | Set-Content $q -Encoding utf8
+    }
+    else {
+        # git diff --no-index turns two directories into one reviewable patch, no repo needed.
+        & git diff --no-index --binary -- $base $work 2>$null |
+            Set-Content (Join-Path $dir 'shadow.patch') -Encoding utf8
+        Remove-Item (Join-Path $dir 'deferred.json') -Force -ErrorAction SilentlyContinue
+    }
 
+    if ($rootNote) { $note = if ($note) { "$note; $rootNote" } else { $rootNote } }
     Write-Row @{ id = $cellId; when = $now; config = $config; model = $model; rule = $rule
                  status = $status; cost = $cost; turns = $turns; output = $outTok
-                 duration = $secs; files = $files; note = $note
+                 duration = $secs; files = $files; note = $note; treeRoot = $treeRoot
                  input = $inTok; cacheRead = $crTok }
     "[{0}] {1} {2} cost={3} turns={4} {5}s" -f (Get-Date -Format 'MM-dd HH:mm:ss'), $cellId,
         $status, $cost, $turns, $secs | Add-Content -Path $Log
@@ -383,6 +463,18 @@ $modelIsGuess = $ModelGuess.IsPresent -and -not $modelPinned
 $ModelWait = if ($cfg.model_wait_seconds) { [int]$cfg.model_wait_seconds } else { 90 }
 
 # Permanent skips first - these never become worth retrying, so they cost no copy.
+#
+# Session-start leads, and the order is the point: it is the reason nearly every prompt is
+# dropped, so putting anything ahead of it files that prompt under a lesser reason and hides
+# the real shape of the ledger. A prompt sent into an existing conversation means what the
+# conversation made it mean; the shadow arm starts from nothing and answers a different
+# question, at full price. Five such runs cost $5.74 here and produced no comparison at all.
+if ($cfg.pair_session_start_only -and -not $SessionStart) {
+    Update-RunModel
+    Write-Row @{ id = $Id; when = $now; model = $runModel; status = 'skipped'
+                 note = 'sent mid-conversation - the shadow arm has no conversation to resolve it against' }
+    exit 0
+}
 if ($prompt.Trim().Length -lt $cfg.min_prompt_chars) {
     Update-RunModel
     Write-Row @{ id = $Id; when = $now; model = $runModel; status = 'skipped'
@@ -397,16 +489,6 @@ foreach ($pat in $cfg.skip_prompt_patterns) {
         exit 0
     }
 }
-# Before the copy, because this one can never become worth retrying. A prompt sent into an
-# existing conversation means what the conversation made it mean; the shadow arm starts from
-# nothing and answers a different question, at full price. Five such runs cost $5.74 here and
-# produced no comparison at all.
-if ($cfg.pair_session_start_only -and -not $SessionStart) {
-    Update-RunModel
-    Write-Row @{ id = $Id; when = $now; model = $runModel; status = 'skipped'
-                 note = 'sent mid-conversation - the shadow arm has no conversation to resolve it against' }
-    exit 0
-}
 # Decide the config before anything is copied, because the decision says whether a copy is
 # needed at all: a prose question is answered in the reply, so neither arm touches the
 # directory and the shadow can answer it anywhere - including from a home-directory session,
@@ -417,14 +499,23 @@ $pickConfig = if ($picks[0]) { $picks[0] } else { 'bare' }
 $pickRule = if ($picks.Count -gt 1) { $picks[1] } else { 'picker failed -> bare' }
 $needsTree = -not ($picks.Count -gt 2 -and $picks[2] -eq 'notree')
 
-$HomeFull = [IO.Path]::GetFullPath($HOME).TrimEnd($Sep)
 $CwdFull = [IO.Path]::GetFullPath($Cwd).TrimEnd($Sep)
-if ($needsTree -and ($CwdFull -eq $HomeFull -or $HomeFull.StartsWith($CwdFull + $Sep))) {
-    Update-RunModel
-    Write-Row @{ id = $Id; when = $now; config = $pickConfig; model = $runModel; rule = $pickRule
-                 status = 'skipped'
-                 note = 'agentic prompt in the home directory - the tree is the experiment, and this one cannot be copied' }
-    exit 0
+$TreeRoot = $CwdFull
+$RootNote = ''
+if ($needsTree) {
+    $resolved = Resolve-TreeRoot $CwdFull
+    if (-not $resolved.root) {
+        Update-RunModel
+        Write-Row @{ id = $Id; when = $now; config = $pickConfig; model = $runModel; rule = $pickRule
+                     status = 'skipped'; treeRoot = ''
+                     note = "no copyable tree: $($resolved.why). Add a directory to project_roots in config.json." }
+        exit 0
+    }
+    $TreeRoot = $resolved.root
+    if ($resolved.substituted) {
+        $RootNote = "ran against project_roots entry $TreeRoot because $($resolved.why)"
+        Write-Log "cwd not copyable -> $TreeRoot"
+    }
 }
 
 # One shadow run at a time: a second would race for the same quota and distort both.
@@ -442,15 +533,17 @@ try {
     $kept = Join-Path $RunDir 'prompt.txt'
     if ($PromptFile -ne $kept) { Copy-Item $PromptFile $kept -Force }
 
-    @{ config = $pickConfig; rule = $pickRule; needsTree = $needsTree } | ConvertTo-Json |
+    @{ config = $pickConfig; rule = $pickRule; needsTree = $needsTree
+       treeRoot = $TreeRoot; rootNote = $RootNote } | ConvertTo-Json |
         Set-Content (Join-Path $RunDir 'pick.json') -Encoding utf8
 
     if ($needsTree) {
-        $files = Copy-Tree $CwdFull (Join-Path $RunDir 'base')
+        $files = Copy-Tree $TreeRoot (Join-Path $RunDir 'base')
         if ($files -lt 0) {
             Update-RunModel
             Write-Row @{ id = $Id; when = $now; config = $pickConfig; model = $runModel
-                         rule = $pickRule; status = 'skipped'; note = $script:CopyWhy }
+                         rule = $pickRule; status = 'skipped'; treeRoot = $TreeRoot
+                         note = $script:CopyWhy }
             Write-Log "skipped: $script:CopyWhy"
             exit 0
         }
