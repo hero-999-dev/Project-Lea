@@ -10,6 +10,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const { spawnSync } = require("child_process");
 
 // Where the shadow directory lives. A collector install puts it at ~/.claude/shadow; this
@@ -217,21 +218,55 @@ function main(input) {
 function leaPatch(base, cwd) {
   const parts = [];
   let failed = null;
-  let names;
+  let names, empty = null;
   try { names = fs.readdirSync(base); } catch (e) { return { patch: "", failed: String(e) }; }
   for (const name of names) {
+    // An entry Lea deleted outright has no counterpart, and `git diff --no-index` cannot express
+    // that: it answers "error: Could not access", which is indistinguishable from the permission
+    // and path-length failures this function exists to catch. Diffing against an empty directory
+    // asks the same question in a form git can answer, and the deletion comes back with real
+    // line counts instead of an error.
+    let other = path.join(cwd, name);
+    if (!fs.existsSync(other)) {
+      let isDir = false;
+      try { isDir = fs.statSync(path.join(base, name)).isDirectory(); } catch {}
+      if (isDir) {
+        // A directory compares against an empty directory; git walks it and reports every file
+        // as removed, with real line counts.
+        if (!empty) {
+          try { empty = fs.mkdtempSync(path.join(os.tmpdir(), "leastat-")); } catch { empty = null; }
+        }
+        if (!empty) {
+          failed = (failed ? failed + "\n" : "") + name + ": removed, and no temp dir";
+          continue;
+        }
+        other = empty;
+      } else {
+        // A file compares against /dev/null, which Git for Windows understands too. An empty
+        // directory does not work here: git resolves dir + the other side's full path and then
+        // cannot access it, which would land in the failure branch below and read as a broken
+        // diff rather than a deletion.
+        other = "/dev/null";
+      }
+    }
     const r = spawnSync("git", ["-c", "core.longpaths=true", "diff", "--no-index", "--numstat",
-      "--", path.join(base, name), path.join(cwd, name)],
+      "--", path.join(base, name), other],
       { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
     if (r.stdout) parts.push(r.stdout);
-    // git answers 0 when the two are identical and 1 when they differ. Both are success here.
-    // Anything else - a spawn failure, an unreadable path, a patch past maxBuffer - is not.
-    if (r.error || (r.status !== 0 && r.status !== 1)) {
-      const why = (r.error && r.error.message) || (r.stderr || "").trim() ||
-                  ("git exited " + r.status);
+    // git answers 0 when the two are identical and 1 when they differ, so status alone cannot
+    // separate success from failure: an unreadable path also exits 1, with nothing on stdout and
+    // "error: ..." on stderr. Checking only the status is how the original bug stayed invisible
+    // for two days, so the message is what decides. Warnings on stderr (CRLF conversion, most
+    // often) are not errors and must not be treated as any.
+    const bad = /^(error|fatal):/m.test(r.stderr || "");
+    if (r.error || bad || (r.status !== 0 && r.status !== 1)) {
+      const why = (r.error && r.error.message) ||
+                  ((r.stderr || "").match(/^(?:error|fatal):.*/m) || [""])[0].trim() ||
+                  (r.stderr || "").trim() || ("git exited " + r.status);
       failed = (failed ? failed + "\n" : "") + name + ": " + why.slice(0, 400);
     }
   }
+  if (empty) { try { fs.rmSync(empty, { recursive: true, force: true }); } catch {} }
   return { patch: parts.join(""), failed };
 }
 
@@ -266,8 +301,17 @@ function prune() {
   }
 }
 
-let data = "";
-process.stdin.on("data", (c) => (data += c));
-process.stdin.on("end", () => { try { main(data); } catch {} process.exit(0); });
-process.stdin.on("error", () => process.exit(0));
-setTimeout(() => process.exit(0), 8000).unref();
+// Importable as well as runnable. A test that copies these functions can pass while the hook
+// they were copied from is broken, and a test that reads this file and eval()s the text is the
+// pattern Malwarebytes flags as script malware - it stopped a whole afternoon of PowerShell
+// tests on 2026-09-02, which is why shadow/lib.ps1 exists. So the hook exports instead, and
+// only reads stdin when it is the process being run.
+if (require.main === module) {
+  let data = "";
+  process.stdin.on("data", (c) => (data += c));
+  process.stdin.on("end", () => { try { main(data); } catch {} process.exit(0); });
+  process.stdin.on("error", () => process.exit(0));
+  setTimeout(() => process.exit(0), 8000).unref();
+}
+
+module.exports = { leaPatch, prune, sessionCost, liveConfig, csvRow };

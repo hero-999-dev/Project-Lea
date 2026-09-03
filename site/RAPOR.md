@@ -1,6 +1,6 @@
 # Raporlar
 
-Bütün ölçümler tek sayfada. **2026-09-03 17:52** tarihinde `savings.py` tarafından üretildi —
+Bütün ölçümler tek sayfada. **2026-09-03 18:18** tarihinde `savings.py` tarafından üretildi —
 elle düzenlenmiyor.
 
 > Bu sayfa GitHub'da açılır çünkü Markdown. Yanındaki `.html` raporlar açılmaz: GitHub HTML'i
@@ -11,10 +11,10 @@ elle düzenlenmiyor.
 
 | | |
 |---|---|
-| **Tasarruf** | **$331 · −26%** |
-| Ölçülen gerçek harcama | $921.88 · 136 istem · 3,275 tur |
-| Aynı iş `full` config'iyle | $1,253 |
-| Üst sınır (en iyi ölçülen tur) | $974 · −51% |
+| **Tasarruf** | **$335 · −26%** |
+| Ölçülen gerçek harcama | $934.13 · 137 istem · 3,371 tur |
+| Aynı iş `full` config'iyle | $1,269 |
+| Üst sınır (en iyi ölçülen tur) | $987 · −51% |
 | Bunu kanıtlamanın maliyeti | $10.91 · 11 gölge koşusu |
 
 Manşet **alt sınır**: dört ölçülmüş turun Lea'ya en az kazandıranını kullanıyor
@@ -34,9 +34,9 @@ değil. Onu ölçecek olan gölge kolu.
 
 | kalem | token | pay |
 |---|---|---|
-| cache okuma (konuşmayı yeniden okumak) | 1,287,901,081 | %70 |
-| girdi + cache yazma | 17,126,114 | %18 |
-| çıktı | 4,390,499 | %12 |
+| cache okuma (konuşmayı yeniden okumak) | 1,301,837,661 | %70 |
+| girdi + cache yazma | 17,466,788 | %19 |
+| çıktı | 4,464,745 | %12 |
 
 Paranın üçte ikisi konuşmayı yeniden okumaya gidiyor, çıktıya değil. Lea'nın 120 kelimelik
 bütçesinin doğrudan kestiği kalem en küçüğü — asıl kaldıraç **tur sayısı**.
@@ -45,14 +45,14 @@ bütçesinin doğrudan kestiği kalem en küçüğü — asıl kaldıraç **tur 
 
 | kurulum | istem | USD |
 |---|---|---|
-| `A` | 134 | $915.95 |
+| `A` | 135 | $928.19 |
 | `B` | 2 | $5.94 |
 
 ## Gölge kolu
 
 | | |
 |---|---|
-| kayıtlı istem | 164 |
+| kayıtlı istem | 165 |
 | koşan | 11 |
 | harcanan | $10.91 |
 | **karşılaştırılabilir çift** | **3** |
