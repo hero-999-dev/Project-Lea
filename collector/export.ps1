@@ -11,8 +11,13 @@
 # Usage:  pwsh -NoProfile -File export.ps1 [-IncludePatches] [-Since 2026-08-01] [-OutDir <path>]
 
 param(
-    # Include lea.patch and shadow.patch for each run. They are what makes a quality comparison
-    # possible at all - and they are your source code. Off unless you say so.
+    # Include each run's diffs: shadow.patch, the shadow arm's edits in its scratch copy, and
+    # lea.stat, three columns per file - added, removed, path - for what Lea changed. They are
+    # what makes a quality comparison possible at all: without them a cheaper arm is
+    # indistinguishable from an arm that did less. shadow.patch is your source code, so this is
+    # off unless you say so. (lea.stat used to be lea.patch, a full binary diff of the live tree.
+    # It was replaced after it was measured at 68 MB for one prompt and found to have silently
+    # failed on every run it was needed for - see shadow-collect.js, leaPatch.)
     [switch]$IncludePatches,
     # Only runs on or after this date.
     [string]$Since = '',
@@ -91,7 +96,7 @@ foreach ($run in Get-ChildItem (Join-Path $shadow 'runs') -Directory -ErrorActio
         Add-Content $promptFile -Encoding utf8
     $prompts++
     if ($IncludePatches) {
-        foreach ($patch in 'lea.patch', 'shadow.patch') {
+        foreach ($patch in 'lea.stat', 'shadow.patch') {
             $src = Join-Path $run.FullName $patch
             if (Test-Path $src) {
                 New-Item -ItemType Directory -Force -Path $patchDir | Out-Null

@@ -435,8 +435,14 @@ function Invoke-Cell([string]$cellId, [string]$dir, [string]$model, [int]$files)
     }
     else {
         # git diff --no-index turns two directories into one reviewable patch, no repo needed.
-        & git diff --no-index --binary -- $base $work 2>$null |
-            Set-Content (Join-Path $dir 'shadow.patch') -Encoding utf8
+        #
+        # Written even when the diff is empty, and that is not a detail. A pipeline that yields
+        # nothing leaves Set-Content creating no file at all, so a run whose agent changed no
+        # files looked exactly like a run whose diff never happened - and prune() waits for this
+        # file, so five runs from 30-31 August pinned their trees on disk indefinitely. An empty
+        # shadow.patch is a real answer: the shadow arm touched nothing.
+        $patch = (& git diff --no-index --binary -- $base $work 2>$null) -join "`n"
+        Set-Content (Join-Path $dir 'shadow.patch') -Value $patch -Encoding utf8
         Remove-Item (Join-Path $dir 'deferred.json') -Force -ErrorAction SilentlyContinue
     }
 

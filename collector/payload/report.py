@@ -186,6 +186,32 @@ def rows():
         yield _row(rid, src, l, s, prompts.get(rid, ''))
 
 
+# How many files each arm actually changed, or None when that was never recorded.
+#
+# This is the column the ledger was missing, and its absence made the cost numbers unreadable.
+# The first three comparable pairs had the shadow arm at 1.67x cheaper and Lea at 1.77x the
+# turns - which says nothing at all until you know that on two of those three the shadow arm
+# changed ZERO files. Doing less is always cheaper. A ratio between an arm that did the work and
+# an arm that answered and stopped is arithmetic, not a measurement.
+#
+# Counted from the artifacts each arm leaves behind, which survive pruning: shadow.patch is a
+# real diff, so its files are its `diff --git` headers; lea.stat is git --numstat, one line per
+# file. None means "not recorded" and is kept distinct from 0, "recorded, and nothing changed".
+def _changed(run_dir):
+    lea = sh = None
+    try:
+        p = os.path.join(run_dir, 'shadow.patch')
+        if os.path.exists(p):
+            sh = sum(1 for ln in io.open(p, encoding='utf-8', errors='replace')
+                     if ln.startswith('diff --git'))
+        p = os.path.join(run_dir, 'lea.stat')
+        if os.path.exists(p):
+            lea = sum(1 for ln in io.open(p, encoding='utf-8', errors='replace') if ln.strip())
+    except OSError:
+        pass
+    return lea, sh
+
+
 def _row(rid, source, l, s, prompt):
         return dict(
             source=source,
@@ -205,7 +231,8 @@ def _row(rid, source, l, s, prompt):
             # Lea's cwd against the tree the shadow arm actually copied. Equal is the normal
             # case; different means the runner had to fall back to a project_roots entry.
             cwd=(l.get('cwd') or ''),
-            tree_root=(s.get('tree_root') or ''))
+            tree_root=(s.get('tree_root') or ''),
+            **dict(zip(('lea_files', 'sh_files'), _changed(os.path.join(HERE, 'runs', rid)))))
 
 
 # A pair whose two arms started from different trees is a weaker thing than one whose arms did
@@ -222,6 +249,24 @@ def substituted(r):
 def paired(data):
     """Both arms answered the prompt, and both were priced."""
     return [r for r in data if r['status'] == 'ok' and r['lea_turns'] and r['sh_turns']]
+
+
+def work_matched(r):
+    """Did the two arms do a comparable amount of work, so a ratio between them means anything?
+
+    Necessary because the first three pairs made the point loudly: the shadow arm came out 1.67x
+    cheaper and, on two of the three, had changed no files at all. An arm that answers and stops
+    is always cheaper than an arm that does the job, and no sample size fixes that - it is a
+    different measurement, not a noisy one.
+
+    True only when both counts are known and both arms are on the same side of "touched the
+    tree". A prompt that is a question (neither arm changes anything) is a legitimate pair; a
+    prompt where one arm edited files and the other did not is not.
+    """
+    lea, sh = r.get('lea_files'), r.get('sh_files')
+    if lea is None or sh is None:
+        return False
+    return (lea > 0) == (sh > 0)
 
 
 def comparable(data):
@@ -337,16 +382,48 @@ def main():
     if not opening:
         print('\nNothing comparable yet: no paired prompt has opened a session.')
     else:
-        turn_r = [x for x in (ratio(r['lea_turns'], r['sh_turns']) for r in opening) if x]
-        out_r = [x for x in (ratio(r['lea_out'], r['sh_out']) for r in opening) if x]
+        # What each arm actually did, before any ratio is quoted over it. Printed first because
+        # it is what decides whether the ratios below are a measurement at all.
+        print('\nWhat each arm changed on disk (files):')
+        for r in opening_same:
+            print('    %-16s  Lea %-7s stock %-7s %s'
+                  % (r['when'][:16],
+                     '?' if r['lea_files'] is None else r['lea_files'],
+                     '?' if r['sh_files'] is None else r['sh_files'],
+                     r['prompt']))
+        unusable = [r for r in opening_same if not work_matched(r)]
+        if unusable:
+            print('\n%d of those cannot carry a ratio: one arm did work the other did not, or the'
+                  % len(unusable))
+            print('file counts were never recorded. Cheaper is trivial when it means doing less,')
+            print('so these are shown and not averaged.')
+
+        # Ratios are taken over the pairs that passed the check above, not over every pair that
+        # opened its session. The wider set produced "Lea takes 1.77x the turns" while two of its
+        # three members had the stock arm changing nothing at all, which is not a finding about
+        # the ruleset - it is a finding about what the stock arm declined to do.
+        usable = [r for r in opening_same if work_matched(r)]
+        turn_r = [x for x in (ratio(r['lea_turns'], r['sh_turns']) for r in usable) if x]
+        out_r = [x for x in (ratio(r['lea_out'], r['sh_out']) for r in usable) if x]
         print('\nWhat the ruleset moves - both arms answered the same prompt from the same')
-        print('directory, so these compare directly (below 1.00 means Lea did it with less):')
+        print('directory AND did comparable work, so these compare directly')
+        print('(below 1.00 means Lea did it with less):')
         if turn_r:
             print('  turns   median %.2fx   %s' % (st.median(turn_r),
                   ' '.join('%.2f' % x for x in turn_r)))
         if out_r:
             print('  output  median %.2fx   %s' % (st.median(out_r),
                   ' '.join('%.2f' % x for x in out_r)))
+        if not turn_r:
+            print('  nothing to average yet - see the file counts above.')
+            print('  For reference only, over every session-opening pair regardless of what each')
+            print('  arm did: turns %s, output %s. Do not quote these.'
+                  % (' '.join('%.2f' % x for x in
+                              [y for y in (ratio(r['lea_turns'], r['sh_turns'])
+                                           for r in opening) if y]),
+                     ' '.join('%.2f' % x for x in
+                              [y for y in (ratio(r['lea_out'], r['sh_out'])
+                                           for r in opening) if y])))
 
         print('\nWhat the rig moves - dollars. Each arm, and what it had to read:')
         for label, c, i in (('Lea  ', 'lea_cost', 'lea_in'), ('stock', 'sh_cost', 'sh_in')):
@@ -359,15 +436,17 @@ def main():
         # Only pairs where neither arm was carrying a conversation the other never saw can be
         # compared in dollars at all. Two-to-one is generous and still usually excludes a turn
         # taken deep into a session.
-        matched = [r for r in opening if r['lea_in'] and r['sh_in'] and r['lea_in'] <= 2 * r['sh_in']]
+        matched = [r for r in usable if r['lea_in'] and r['sh_in'] and r['lea_in'] <= 2 * r['sh_in']]
         cost_r = [x for x in (ratio(r['lea_cost'], r['sh_cost']) for r in matched) if x]
-        print('\nCost ratio, over the pairs where the two arms carried comparable input:')
+        print('\nCost ratio, over the pairs where the two arms did comparable work AND carried')
+        print('comparable input:')
         if cost_r:
             print('  median %.2fx over %d pair(s)' % (st.median(cost_r), len(cost_r)))
         else:
             missing = sum(1 for r in opening if r['lea_in'] is None or r['sh_in'] is None)
             print('  no comparable pair yet (%d of %d recorded before the ledgers kept the input'
-                  ' counts).' % (missing, len(opening)))
+                  ' counts; %d more failed the work check above).'
+                  % (missing, len(opening), len(opening_same) - len(usable)))
         depthed = [r for r in opening if r['depth'] is not None and r['lea_cost'] and r['sh_cost']]
         if len(depthed) > 1:
             print('  for contrast, every pair by session depth:')

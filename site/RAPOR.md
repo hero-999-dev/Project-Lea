@@ -1,6 +1,6 @@
 # Raporlar
 
-Bütün ölçümler tek sayfada. **2026-09-03 14:41** tarihinde `savings.py` tarafından üretildi —
+Bütün ölçümler tek sayfada. **2026-09-03 17:52** tarihinde `savings.py` tarafından üretildi —
 elle düzenlenmiyor.
 
 > Bu sayfa GitHub'da açılır çünkü Markdown. Yanındaki `.html` raporlar açılmaz: GitHub HTML'i
@@ -11,10 +11,10 @@ elle düzenlenmiyor.
 
 | | |
 |---|---|
-| **Tasarruf** | **$327 · −26%** |
-| Ölçülen gerçek harcama | $910.37 · 135 istem · 3,182 tur |
-| Aynı iş `full` config'iyle | $1,237 |
-| Üst sınır (en iyi ölçülen tur) | $962 · −51% |
+| **Tasarruf** | **$331 · −26%** |
+| Ölçülen gerçek harcama | $921.88 · 136 istem · 3,275 tur |
+| Aynı iş `full` config'iyle | $1,253 |
+| Üst sınır (en iyi ölçülen tur) | $974 · −51% |
 | Bunu kanıtlamanın maliyeti | $10.91 · 11 gölge koşusu |
 
 Manşet **alt sınır**: dört ölçülmüş turun Lea'ya en az kazandıranını kullanıyor
@@ -34,9 +34,9 @@ değil. Onu ölçecek olan gölge kolu.
 
 | kalem | token | pay |
 |---|---|---|
-| cache okuma (konuşmayı yeniden okumak) | 1,271,236,424 | %70 |
-| girdi + cache yazma | 16,974,228 | %19 |
-| çıktı | 4,324,508 | %12 |
+| cache okuma (konuşmayı yeniden okumak) | 1,287,901,081 | %70 |
+| girdi + cache yazma | 17,126,114 | %18 |
+| çıktı | 4,390,499 | %12 |
 
 Paranın üçte ikisi konuşmayı yeniden okumaya gidiyor, çıktıya değil. Lea'nın 120 kelimelik
 bütçesinin doğrudan kestiği kalem en küçüğü — asıl kaldıraç **tur sayısı**.
@@ -45,27 +45,29 @@ bütçesinin doğrudan kestiği kalem en küçüğü — asıl kaldıraç **tur 
 
 | kurulum | istem | USD |
 |---|---|---|
-| `A` | 133 | $904.43 |
+| `A` | 134 | $915.95 |
 | `B` | 2 | $5.94 |
 
 ## Gölge kolu
 
 | | |
 |---|---|
-| kayıtlı istem | 163 |
+| kayıtlı istem | 164 |
 | koşan | 11 |
 | harcanan | $10.91 |
 | **karşılaştırılabilir çift** | **3** |
 
 ## Karşılaştırılabilir çiftler
 
-Aynı istem, iki kol, aynı ağaçtan. Tur ve çıktı karşılaştırılabilir; maliyet yalnız iki kolun taşıdığı girdi birbirine yakınsa.
+Aynı istem, iki kol, aynı ağaçtan.
 
-| tarih | kaynak | config | tur L/S | çıktı L/S | taşınan girdi L/S |
-|---|---|---|---|---|---|
-| 2026-09-02 21:24 | local | bare | 23 / 13 | 19k / 6k | 1.3M / 251k |
-| 2026-09-03 06:52 | local | bare | 4 / 4 | 527 / 1k | 161k / 90k |
-| 2026-09-03 08:05 | local | bare | 57 / 25 | 81k / 25k | 5.0M / 1.0M |
+| tarih | kaynak | config | tur L/S | çıktı L/S | taşınan girdi L/S | değişen dosya L/S |
+|---|---|---|---|---|---|---|
+| 2026-09-02 21:24 | local | bare | 23 / 13 | 19k / 6k | 1.3M / 251k | ? / 0 |
+| 2026-09-03 06:52 | local | bare | 4 / 4 | 527 / 1k | 161k / 90k | ? / 0 |
+| 2026-09-03 08:05 | local | bare | 57 / 25 | 81k / 25k | 5.0M / 1.0M | ? / 1 |
+
+**Bu çiftlerden 3 tanesi oran taşıyamaz.** Son sütun sebebi: bir kol iş yaptı, diğeri yapmadı — ya da sayı hiç kaydedilmedi. Az iş yapmak her zaman ucuzdur, o yüzden bu satırlar gösteriliyor ama ortalamaya girmiyor. Gölge kolunun 2026-09-03'e kadarki bütün çiftlerinde Lea tarafının diff'i kayıp: `git diff` proje kökünü tararken `shadow/runs/` içindeki eski kopyalara giriyor, bir yol Windows sınırını geçiyor ve komut hiçbir şey yazmadan çıkıyordu. Düzeltildi; bundan sonraki çiftlerde bu sütun dolu gelecek.
 
 ## Tam raporlar
 

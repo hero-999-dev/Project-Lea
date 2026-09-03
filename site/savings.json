@@ -1,24 +1,24 @@
 {
-  "generated": "2026-09-03 14:41",
+  "generated": "2026-09-03 17:52",
   "baseline": "full",
   "model": "opus",
   "lea": {
-    "prompts": 135,
-    "total_usd": 910.36686,
-    "median_usd": 2.381864,
-    "turns": 3182,
-    "output_tokens": 4324508,
-    "input_tokens": 16974228,
-    "cache_read_tokens": 1271236424,
+    "prompts": 136,
+    "total_usd": 921.883917,
+    "median_usd": 2.4047595,
+    "turns": 3275,
+    "output_tokens": 4390499,
+    "input_tokens": 17126114,
+    "cache_read_tokens": 1287901081,
     "first": "2026-08-30 18:02:51",
-    "last": "2026-09-03 12:14:55",
+    "last": "2026-09-03 12:50:45",
     "models": [
       "claude-opus-5"
     ],
     "by_user": {
       "A": {
-        "prompts": 133,
-        "usd": 904.4317589999997
+        "prompts": 134,
+        "usd": 915.9488159999997
       },
       "B": {
         "prompts": 2,
@@ -75,22 +75,22 @@
   ],
   "headline": {
     "ratio": 0.7358257617529307,
-    "would_be_usd": 1237.2043863091535,
-    "saved_usd": 326.83752630915353,
+    "would_be_usd": 1252.8562669562286,
+    "saved_usd": 330.97234995622864,
     "saved_pct": 26.41742382470693,
     "source": "Kolay bug fix",
     "n": "3/3"
   },
   "ceiling": {
     "ratio": 0.4861662631926437,
-    "would_be_usd": 1872.5422328189534,
-    "saved_usd": 962.1753728189534,
+    "would_be_usd": 1896.231776647782,
+    "saved_usd": 974.347859647782,
     "saved_pct": 51.38337368073562,
     "source": "Metin (araç yok)",
     "n": "5/3"
   },
   "shadow": {
-    "rows": 163,
+    "rows": 164,
     "ok": 11,
     "truncated": 0,
     "deferred": 1,
@@ -99,12 +99,12 @@
       "home directory": 10,
       "shorter than min_prompt_chars": 21,
       "in flight": 1,
-      "mid-conversation": 116,
+      "mid-conversation": 117,
       "skip pattern": 2,
       "other": 1
     },
     "comparable": 3,
-    "lea_rows": 135,
-    "home_cwd": 81
+    "lea_rows": 136,
+    "home_cwd": 82
   }
 }

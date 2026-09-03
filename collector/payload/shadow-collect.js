@@ -163,9 +163,17 @@ function main(input) {
   // two patches are directly comparable.
   const base = path.join(runDir, "base");
   if (fs.existsSync(base)) {
-    const r = spawnSync("git", ["diff", "--no-index", "--binary", "--", base, pointer.cwd],
-      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-    if (r.stdout) fs.writeFileSync(path.join(runDir, "lea.patch"), r.stdout, "utf8");
+    const r = leaPatch(base, pointer.cwd);
+    if (r.failed) {
+      // Recorded, not swallowed. This used to be `if (r.stdout) write(...)`, which made a diff
+      // that never ran look exactly like a diff that found nothing - and since prune() waits
+      // for both patches, every failure also pinned a full copy of the tree on disk forever.
+      fs.writeFileSync(path.join(runDir, "lea.stat.error"), r.failed, "utf8");
+    } else {
+      // Written even when empty. "Lea changed no files" is a result, and the only honest way to
+      // say it is a patch with nothing in it.
+      fs.writeFileSync(path.join(runDir, "lea.stat"), r.patch, "utf8");
+    }
   }
 
   const csv = path.join(SHADOW, "lea.csv");
@@ -185,6 +193,49 @@ function main(input) {
 // the newest few keep their trees; older runs are cut down to the prompt, the result and the
 // two patches, which is all a later comparison reads. Never touches a run that is still
 // missing a patch - the shadow arm may still be working in it.
+// Lea's side of the comparison, taken one top-level entry at a time.
+//
+// Not `git diff --no-index base cwd` any more, which is what this was. That walks both sides
+// exhaustively, and cwd contains shadow/runs/ - every earlier run's copy of this same tree. It
+// reached 2.2 GB, and a path inside one of those copies grew long enough that git gave up with
+// "error: Could not access ...", wrote nothing to stdout, and exited 1. The caller only checked
+// stdout, so the failure was invisible; no lea.stat meant prune() could never reclaim the tree,
+// which made the next diff slower and likelier to fail. Every comparable pair collected so far
+// lost its Lea-side diff to this, which is the one signal that says whether the two arms did the
+// same amount of work.
+//
+// base holds exactly what config.copy.exclude_dirs allowed through - no shadow/, no runs/, no
+// .git - so diffing per entry of base compares that same set and never descends into the rest.
+// Long paths are enabled because the copies nest deeply enough to pass MAX_PATH on their own.
+//
+// It records --numstat, not the patch text. Once the walk was fixed the full binary diff came
+// out at 68 MB for a single prompt and still overflowed a 64 MB buffer on one entry, because
+// Lea's side spans a whole session in a live tree rather than one agent's edits in a scratch
+// copy. Three columns per file - added, removed, path - answer what the pair is for: did the two
+// arms touch the same files, and to the same extent, or did the cheaper arm simply do less. That
+// fits in a few KB, cannot overflow, and carries no source code off the machine when exported.
+function leaPatch(base, cwd) {
+  const parts = [];
+  let failed = null;
+  let names;
+  try { names = fs.readdirSync(base); } catch (e) { return { patch: "", failed: String(e) }; }
+  for (const name of names) {
+    const r = spawnSync("git", ["-c", "core.longpaths=true", "diff", "--no-index", "--numstat",
+      "--", path.join(base, name), path.join(cwd, name)],
+      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+    if (r.stdout) parts.push(r.stdout);
+    // git answers 0 when the two are identical and 1 when they differ. Both are success here.
+    // Anything else - a spawn failure, an unreadable path, a patch past maxBuffer - is not.
+    if (r.error || (r.status !== 0 && r.status !== 1)) {
+      const why = (r.error && r.error.message) || (r.stderr || "").trim() ||
+                  ("git exited " + r.status);
+      failed = (failed ? failed + "\n" : "") + name + ": " + why.slice(0, 400);
+    }
+  }
+  return { patch: parts.join(""), failed };
+}
+
+
 function prune() {
   let keep = 5;
   try {
@@ -200,8 +251,14 @@ function prune() {
     // retry has to start from, and deleting that would leave a deferred run that can never
     // produce a comparable answer - it would run against a tree Lea had already changed.
     if (fs.existsSync(path.join(dir, "deferred.json"))) continue;
-    const done = fs.existsSync(path.join(dir, "lea.patch")) &&
-                 fs.existsSync(path.join(dir, "shadow.patch"));
+    // A run whose Lea-side diff failed is finished too, in the only sense that matters here:
+    // cwd has moved on, so the diff can never be retaken, and the tree is dead weight from that
+    // moment. Treating it as unfinished is what let runs/ grow to 2.2 GB.
+    // lea.patch is the pre-2026-09-03 name, when this was a full diff. Runs from before the
+    // rename still hold one and are just as finished as the ones that hold a lea.stat.
+    const leaDone = ["lea.stat", "lea.stat.error", "lea.patch"]
+      .some((f) => fs.existsSync(path.join(dir, f)));
+    const done = leaDone && fs.existsSync(path.join(dir, "shadow.patch"));
     if (!done) continue;
     for (const tree of ["base", "work"]) {
       try { fs.rmSync(path.join(dir, tree), { recursive: true, force: true }); } catch {}
