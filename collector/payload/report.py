@@ -208,6 +208,40 @@ def _row(rid, source, l, s, prompt):
             tree_root=(s.get('tree_root') or ''))
 
 
+# A pair whose two arms started from different trees is a weaker thing than one whose arms did
+# not, and the difference has to be visible rather than averaged in. It happens when the session's
+# own directory could not be copied and the runner fell back to a project_roots entry: the prompt
+# is the same and the turn counts still mean something, but the two diffs no longer share an
+# ancestor, so nothing about the files each arm changed is comparable.
+def substituted(r):
+    root, cwd = (r.get('tree_root') or ''), (r.get('cwd') or '')
+    return bool(root) and bool(cwd) and os.path.normcase(os.path.normpath(root)) != \
+        os.path.normcase(os.path.normpath(cwd))
+
+
+def paired(data):
+    """Both arms answered the prompt, and both were priced."""
+    return [r for r in data if r['status'] == 'ok' and r['lea_turns'] and r['sh_turns']]
+
+
+def comparable(data):
+    """The pairs that are a measurement, by the one definition anything is allowed to cite.
+
+    A pair is a measurement only if both arms were given the same problem, and a prompt sent
+    mid-conversation is not that. "commit et" means something to Lea, which has the session, and
+    nothing to a shadow run starting from an empty context in a copy of the directory: the two
+    arms answer different questions, and their turns, output and cost describe different work.
+    Only a prompt that opened its session qualifies (`depth == 0`), and even that is necessary
+    rather than sufficient - one that refers to yesterday still refers to nothing here. Pairs
+    whose shadow arm ran against a substituted tree are excluded and reported separately.
+
+    This lives here rather than in each page that prints it because savings.py quotes the count
+    in a published headline. Two definitions of "comparable" eventually disagree, and the one on
+    the page is the one nobody thinks to re-check.
+    """
+    return [r for r in paired(data) if r['depth'] == 0 and not substituted(r)]
+
+
 def main():
     data = list(rows())
     if not data:
@@ -217,7 +251,7 @@ def main():
     # A pair is one prompt answered twice and finished twice. A truncated shadow run has a cost
     # and no result, and comparing it would read as "the stock config was cheaper" when it
     # simply stopped.
-    pairs = [r for r in data if r['status'] == 'ok' and r['lea_turns'] and r['sh_turns']]
+    pairs = paired(data)
 
     print('%-17s %-7s %13s %15s %17s  %s' %
           ('when', 'config', 'turns L/S', 'output L/S', 'carried in L/S', 'prompt'))
@@ -229,26 +263,10 @@ def main():
             '%s / %s' % (tok(r['lea_in']), tok(r['sh_in'])),
             r['prompt']))
 
-    # A pair is a measurement only if both arms were given the same problem, and a prompt sent
-    # mid-conversation is not that. "commit et" means something to Lea, which has the session,
-    # and nothing to a shadow run starting from an empty context in a copy of the directory:
-    # the two arms answer different questions and their turns, output and cost describe
-    # different work. Only a prompt that opened its session is safe, and even that is necessary
-    # rather than sufficient - one that refers to yesterday still refers to nothing here.
+    # Both rules are defined at module level so the pages that quote them cannot drift.
     opening = [r for r in pairs if r['depth'] == 0]
     later = [r for r in pairs if r['depth'] is None or r['depth'] > 0]
-
-    # A pair whose two arms started from different trees is a weaker thing than one whose arms
-    # did not, and the difference has to be visible rather than averaged in. It happens when the
-    # session's own directory could not be copied and the runner fell back to a project_roots
-    # entry: the prompt is the same and the turn counts still mean something, but the two diffs
-    # no longer share an ancestor, so nothing about the files each arm changed is comparable.
-    def substituted(r):
-        root, cwd = (r.get('tree_root') or ''), (r.get('cwd') or '')
-        return bool(root) and bool(cwd) and os.path.normcase(os.path.normpath(root)) != \
-            os.path.normcase(os.path.normpath(cwd))
-
-    opening_same = [r for r in opening if not substituted(r)]
+    opening_same = comparable(data)
     opening_moved = [r for r in opening if substituted(r)]
 
     print('\n%d prompt(s) recorded, %d paired, %d of those comparable.'

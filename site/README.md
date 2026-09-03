@@ -1,10 +1,14 @@
 # The report pages
 
-The generated report pages, copied here so they travel with the repository. Open
-[`index.html`](index.html) — it frames the rest.
+The generated report pages, copied here so they travel with the repository.
+
+**[`RAPOR.md`](RAPOR.md) is the one that opens in GitHub** — every measured number from the
+pages below, in Markdown, so it renders in the browser you are already in. The `.html` files
+need [`ac.ps1`](#there-is-no-url-and-that-is-on-purpose).
 
 | page | what it is |
 |---|---|
+| `RAPOR.md` | all of it as one Markdown page — the only one GitHub renders |
 | `index.html` | the frame: the savings banner and links to everything below |
 | `rapor-lea.html` | Lea itself — the ruleset, why each rule is there, and v7 against v8 |
 | `rapor.html` | the four benchmark rounds, five configs, Sonnet |

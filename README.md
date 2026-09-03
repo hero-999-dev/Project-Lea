@@ -13,10 +13,23 @@ dependencies, that matched or beat 6,000-token plugin stacks at 13–53% lower c
 single paragraph of it — the exception clause, from permission to obligation — took the hard
 round from 4/20 correct to 13/20, with both arms measured the same day.
 
-**📖 The full report is `docs/index.html`** — clone or download the repository and open that
-file in a browser. It is a single self-contained page: no server, no build step, no network
-calls. (It is not published as a website; the repository is private.)
-**📦 Full report as a downloadable archive →** [Releases](../../releases/latest)
+### 📊 Start here → **[`site/RAPOR.md`](site/RAPOR.md)**
+
+Every measured number on one page — what Lea saved, the per-round ratios behind it, where the
+money actually goes, and what the shadow arm has collected. **It opens right here in GitHub**,
+because it is Markdown. It is generated from the ledgers by `savings.py`, not written by hand.
+
+The full reports are HTML, and GitHub shows HTML as source rather than rendering it — the
+repository is private, and GitHub Pages is refused for a private repository on this plan
+(HTTP 422). So to read them:
+
+```powershell
+gh auth login                  # once per machine
+pwsh -File site/ac.ps1         # clones or pulls, then opens the report in your browser
+```
+
+`docs/index.html` is the same report as one self-contained file — no server, no build step, no
+network calls. **📦 Everything as an archive →** [Releases](../../releases/latest)
 
 Everything here is bilingual: **English** and **Türkçe**.
 
