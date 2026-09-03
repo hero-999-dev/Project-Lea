@@ -1,6 +1,6 @@
 # Raporlar
 
-Bütün ölçümler tek sayfada. **2026-09-03 18:18** tarihinde `savings.py` tarafından üretildi —
+Bütün ölçümler tek sayfada. **2026-09-03 18:34** tarihinde `savings.py` tarafından üretildi —
 elle düzenlenmiyor.
 
 > Bu sayfa GitHub'da açılır çünkü Markdown. Yanındaki `.html` raporlar açılmaz: GitHub HTML'i
@@ -11,10 +11,10 @@ elle düzenlenmiyor.
 
 | | |
 |---|---|
-| **Tasarruf** | **$335 · −26%** |
-| Ölçülen gerçek harcama | $934.13 · 137 istem · 3,371 tur |
-| Aynı iş `full` config'iyle | $1,269 |
-| Üst sınır (en iyi ölçülen tur) | $987 · −51% |
+| **Tasarruf** | **$337 · −26%** |
+| Ölçülen gerçek harcama | $939.42 · 138 istem · 3,408 tur |
+| Aynı iş `full` config'iyle | $1,277 |
+| Üst sınır (en iyi ölçülen tur) | $993 · −51% |
 | Bunu kanıtlamanın maliyeti | $10.91 · 11 gölge koşusu |
 
 Manşet **alt sınır**: dört ölçülmüş turun Lea'ya en az kazandıranını kullanıyor
@@ -34,9 +34,9 @@ değil. Onu ölçecek olan gölge kolu.
 
 | kalem | token | pay |
 |---|---|---|
-| cache okuma (konuşmayı yeniden okumak) | 1,301,837,661 | %70 |
-| girdi + cache yazma | 17,466,788 | %19 |
-| çıktı | 4,464,745 | %12 |
+| cache okuma (konuşmayı yeniden okumak) | 1,309,419,902 | %70 |
+| girdi + cache yazma | 17,514,432 | %19 |
+| çıktı | 4,505,398 | %12 |
 
 Paranın üçte ikisi konuşmayı yeniden okumaya gidiyor, çıktıya değil. Lea'nın 120 kelimelik
 bütçesinin doğrudan kestiği kalem en küçüğü — asıl kaldıraç **tur sayısı**.
@@ -45,17 +45,22 @@ bütçesinin doğrudan kestiği kalem en küçüğü — asıl kaldıraç **tur 
 
 | kurulum | istem | USD |
 |---|---|---|
-| `A` | 135 | $928.19 |
+| `A` | 136 | $933.48 |
 | `B` | 2 | $5.94 |
 
 ## Gölge kolu
 
 | | |
 |---|---|
-| kayıtlı istem | 165 |
+| kayıtlı istem | 166 |
 | koşan | 11 |
 | harcanan | $10.91 |
-| **karşılaştırılabilir çift** | **3** |
+| karşılaştırılabilir çift | 3 |
+| **oran taşıyabilen çift** | **0 / 20** |
+
+Alttaki satır ilerlemeyi gösteren tek sayı. Üstteki "aynı istem iki kola soruldu" demek;
+alttaki "ve iki kol karşılaştırılabilir miktarda iş yaptı" demek. Manşetin izdüşümden ölçüme
+geçmesi alttakine bağlı.
 
 ## Karşılaştırılabilir çiftler
 
