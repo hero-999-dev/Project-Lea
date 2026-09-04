@@ -1,11 +1,9 @@
 # Fetch the latest report pages from the private repo and open them in a browser.
 #
-# Why this script exists instead of a URL: GitHub Pages is refused for a private repository on
-# this account's plan - `POST /repos/.../pages` returns HTTP 422, "Your current plan does not
-# support GitHub Pages for this repository", confirmed 2026-09-03. And GitHub's own file view
-# renders HTML as source, not as a page. So the pages are stored here to be pulled and opened
-# locally, which is what this does. Making the repository public would give a URL and is
-# deliberately not the plan.
+# There is a published URL as well - https://hero-999-dev.github.io/Project-Lea/, behind a
+# password gate - but this stays because a local copy needs no network, no password and no
+# secure context, and because GitHub's own file view renders HTML as source rather than as a
+# page. This clones on first use and pulls afterwards, so it is safe to run repeatedly.
 #
 # Works on any machine that has `gh` and is signed in as the account that owns the repo:
 #     gh auth login          # once per machine

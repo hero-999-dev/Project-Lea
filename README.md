@@ -26,17 +26,22 @@ Every measured number on one page — what Lea saved, the per-round ratios behin
 money actually goes, and what the shadow arm has collected. **It opens right here in GitHub**,
 because it is Markdown. It is generated from the ledgers by `savings.py`, not written by hand.
 
-The full reports are HTML, and GitHub shows HTML as source rather than rendering it — the
-repository is private, and GitHub Pages is refused for a private repository on this plan
-(HTTP 422). So to read them:
+### 🌐 The reports as a website → **https://hero-999-dev.github.io/Project-Lea/**
+
+Password-gated. The gate derives the directory the reports live in from what you type, so the
+password is not in the page's source and a wrong one simply names a directory that is not there.
+It is a lock on the link, not on the repository: this repository is public, so anyone browsing
+it can see that directory anyway. That is the intended trade — it keeps the URL from being
+casually shareable, it does not keep a determined reader out. Do not put anything behind it that
+would matter if it were read.
+
+Prefer a local copy? Every page is a self-contained file:
 
 ```powershell
-gh auth login                  # once per machine
 pwsh -File site/ac.ps1         # clones or pulls, then opens the report in your browser
 ```
 
-`docs/index.html` is the same report as one self-contained file — no server, no build step, no
-network calls. **📦 Everything as an archive →** [Releases](../../releases/latest)
+**📦 Everything as an archive →** [Releases](../../releases/latest)
 
 Everything here is bilingual: **English** and **Türkçe**.
 
@@ -85,8 +90,8 @@ Two non-obvious findings that will save you time regardless of which plugins you
 | [`config/hooks/`](config/hooks/) | Two hand-rolled always-on `SessionStart` hooks (Node, cross-platform) |
 | [`config/skills/lean-context/`](config/skills/lean-context/) | A personal skill that routes bulky files through local converters instead of reading them raw |
 | [`collector/install-user.ps1`](collector/install-user.ps1) | Installs Lea and the shadow arm into a second Windows profile on the same machine, joined to the ledger `collector/install.ps1` already created instead of starting a parallel one |
-| [`docs/index.html`](docs/index.html) | The website version of the report — one self-contained file, opens offline |
-| [`site/`](site/) | The generated report pages, carried here by `sync_payload.py`. There is no URL: the repository is private and Pages is refused on this plan (HTTP 422), so `site/ac.ps1` pulls and opens them instead. See [`site/README.md`](site/README.md) |
+| [`docs/`](docs/) | What GitHub Pages serves: the password gate, and the reports one directory down in a name derived from that password |
+| [`site/`](site/) | The same generated pages, browsable in the repository and readable offline; `site/ac.ps1` pulls and opens them. See [`site/README.md`](site/README.md) |
 
 ---
 

@@ -18,15 +18,18 @@ need [`ac.ps1`](#there-is-no-url-and-that-is-on-purpose).
 | `rapor-golge.html` | the shadow arm: what it has collected and what is blocking it |
 | `savings.json` | every intermediate number behind the savings figure |
 
-## There is no URL, and that is on purpose
+## There is a URL now, behind a password
 
-The repository is **private and stays private**. GitHub Pages is refused for a private
-repository on this account's plan — `POST /repos/.../pages` answers **HTTP 422, "Your current
-plan does not support GitHub Pages for this repository"** (confirmed 2026-09-03). And GitHub's
-own file view shows HTML as source rather than rendering it, so browsing to a page here is not
-the same as reading it.
+**https://hero-999-dev.github.io/Project-Lea/** — served from `docs/`, which holds a gate page
+and the same reports one directory down, in a directory whose name is derived from the password.
+Nothing in the gate's source names it, so a wrong password simply asks for a directory that is
+not there.
 
-So the pages are stored to be **pulled and opened locally**. On any machine with the GitHub CLI:
+It locks the link, not the repository. This repository is public, so the directory is visible to
+anyone who browses it; the gate stops a URL from being casually shareable and nothing more.
+
+GitHub's own file view still shows HTML as source rather than rendering it, so browsing to a page
+*here* is not the same as reading it. To read them locally, on any machine with the GitHub CLI:
 
 ```powershell
 gh auth login                    # once per machine
