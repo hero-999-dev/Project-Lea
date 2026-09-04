@@ -291,6 +291,12 @@ def arm_comparison():
     print('\nEvery priced turn, by the ruleset that produced it. Not paired - different sessions')
     print('are different work - but it covers all of the spend rather than the 4.3% that can be')
     print('paired. Switch arms with: python shadow/arm.py stok')
+    print('')
+    print('  What this can and cannot settle, measured 2026-09-04 from the 148 Lea rows: cost per')
+    print('  turn has a log-sd of 1.28, so at alpha .05 and power .80 it needs 518 rows PER ARM to')
+    print('  resolve a 25% difference, 157 for 50%, 1321 for 15%. The headline claims -26%. So')
+    print('  this arm is an accumulator, not the route to a measured headline - a fixed task with')
+    print('  a binary outcome settles that at n=20, which is what the benchmark rounds are for.')
     print('  %-18s %5s %5s %12s %9s %11s' % ('ruleset', 'n', 'days', 'total $', 'median $', 'med turns'))
     for cfg, b in sorted(by_cfg.items(), key=lambda kv: -len(kv[1]['cost'])):
         if not b['cost']:

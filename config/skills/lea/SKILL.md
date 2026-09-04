@@ -63,15 +63,20 @@ python check_docs.py       # secret, leak, shipped, link, numbers, page, stale, 
   wall, not an oversight.
 - The **wide** arm is session-level A/B on the same ledger: `python shadow/arm.py stok`, restart
   the CLI, work normally. 100% coverage, no extra spend, and *not* paired - two sessions are
-  different work, so never report it as a paired result.
+  different work, so never report it as a paired result. It is also underpowered, measured on
+  2026-09-04: cost per turn has a log-sd of 1.28, so resolving a 25% difference needs 518
+  rows per arm - 157 for 50%, 1321 for 15% - and the headline claims -26%. It is an
+  accumulator, not the route to a measured headline.
 - 70% of real spend is re-reading the conversation, 12% is output. A proposal that only shortens
   Lea's replies is aiming at the small number; **turn count** is the lever.
 
 ## Before proposing a v9
 
-Do not. Not until there is evidence, and evidence means one of two things: enough pairs that can
-carry a ratio (the statusline shows `cift N/20`), or a benchmark round - fixed tasks, hidden
-tests, n=20 per arm, both arms the same day. That is how v8 was decided: rewriting one paragraph,
+Do not. Not until there is evidence, and in practice that means a benchmark round: fixed
+tasks, hidden tests, n=20 per arm, both arms the same day. It is the only instrument here
+with the power to settle it. A fixed task with a BINARY outcome needs n=20; every continuous
+measure on real work needs hundreds - the paired arm sees 4.3% of spend, turn count needs
+n=226, the wide arm n=518. Watch `pairs N/20`, but do not wait on it. That is how v8 was decided: rewriting one paragraph,
 the exception clause from permission to obligation, moved the hard round from 4/20 to 13/20.
 
 While Lea is the thing being measured, what must not change is **the banner it emits** -
