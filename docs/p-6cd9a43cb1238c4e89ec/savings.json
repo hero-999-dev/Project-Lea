@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-04 20:00",
+  "generated": "2026-09-04 23:28",
   "baseline": "full",
   "model": "opus",
   "lea": {
@@ -25,7 +25,7 @@
         "usd": 5.935101
       }
     },
-    "excluded_rows": 21,
+    "excluded_rows": 33,
     "excluded_configs": [
       "other",
       "other-carried-lea"
@@ -93,22 +93,22 @@
     "n": "5/3"
   },
   "shadow": {
-    "rows": 204,
+    "rows": 214,
     "ok": 12,
     "truncated": 0,
     "deferred": 1,
     "spent_usd": 11.290763499999999,
     "buckets": {
       "home directory": 10,
-      "shorter than min_prompt_chars": 21,
+      "shorter than min_prompt_chars": 22,
       "in flight": 1,
-      "mid-conversation": 155,
+      "mid-conversation": 164,
       "skip pattern": 3,
       "other": 1
     },
     "comparable": 4,
     "usable": 0,
-    "lea_rows": 169,
-    "home_cwd": 109
+    "lea_rows": 181,
+    "home_cwd": 121
   }
 }
