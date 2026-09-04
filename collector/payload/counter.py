@@ -48,20 +48,28 @@ def arms():
     row nobody can vouch for is reported, never counted. See armLabel() in shadow-collect.js.
     """
     lea = stok = unsure = 0
+    by_user = {}
     try:
         import csv
         with io.open(os.path.join(HERE, 'lea.csv'), encoding='utf-8-sig', newline='') as fh:
             for r in csv.DictReader(fh):
                 cfg = (r.get('lea_config') or '').strip()
+                # Per install as well as in total. One ledger, more than one profile writing it,
+                # and the statusline is read by one of them: a global "lea 148" tells the reader
+                # nothing about whether THEY have contributed anything to the arm they are on.
+                u = by_user.setdefault(r.get('user') or '?', {'lea': 0, 'stok': 0, 'unsure': 0})
                 if cfg == 'lea':
                     lea += 1
+                    u['lea'] += 1
                 elif cfg.startswith('other') and '-' not in cfg:
                     stok += 1
+                    u['stok'] += 1
                 elif cfg:
                     unsure += 1
+                    u['unsure'] += 1
     except OSError:
         pass
-    return lea, stok, unsure
+    return lea, stok, unsure, by_user
 
 
 def main():
@@ -69,7 +77,7 @@ def main():
     data = list(report.rows())
     comparable = report.comparable(data)
     usable = [r for r in comparable if report.work_matched(r)]
-    lea, stok, unsure = arms()
+    lea, stok, unsure, by_user = arms()
     payload = {
         'usable': len(usable),
         'comparable': len(comparable),
@@ -78,6 +86,7 @@ def main():
         'lea_rows': lea,
         'stok_rows': stok,
         'unsure_rows': unsure,
+        'by_user': by_user,
         'generated': datetime.now().strftime('%Y-%m-%d %H:%M'),
     }
     # Written whole, then moved into place: the statusline reads this file constantly, and a

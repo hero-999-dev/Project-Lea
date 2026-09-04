@@ -105,12 +105,22 @@ try {
         # The wide comparison, which is the one a stock session actually fills. Without it a
         # stock session shows no progress anywhere - the pair counter cannot move from one - and
         # looks like nothing is being collected, which is what put the second arm here.
-        # Grey until both sides exist, because one side alone compares with nothing.
-        $Lea = [int]$C.lea_rows
-        $Stok = [int]$C.stok_rows
+        #
+        # Counted for THIS profile and labelled with its name. One ledger takes rows from more
+        # than one Windows profile, so a global "lea 148" answers a question the reader did not
+        # ask: it says nothing about whether this install has contributed to the arm it is on,
+        # and both profiles see the same number no matter which one is collecting. Falls back to
+        # the totals when the file predates the per-user breakdown.
+        $Me = $env:USERNAME
+        $Mine = if ($Me -and $C.by_user) { $C.by_user.$Me } else { $null }
+        $Lea = if ($Mine) { [int]$Mine.lea } else { [int]$C.lea_rows }
+        $Stok = if ($Mine) { [int]$Mine.stok } else { [int]$C.stok_rows }
+        $Who = if ($Mine) { "$Me " } else { '' }
         if ($Lea -gt 0 -or $Stok -gt 0) {
+            # Green only when this profile has run both arms itself - one arm on one profile and
+            # the other on another is not a comparison, it is two profiles (report.py says so).
             $Both = if ($Lea -gt 0 -and $Stok -gt 0) { 114 } else { 244 }
-            Write-Segment "lea $Lea / stock $Stok" $Both
+            Write-Segment "${Who}lea $Lea / stock $Stok" $Both
         }
     }
 } catch {}
