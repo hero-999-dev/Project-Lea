@@ -4,8 +4,8 @@ Run once. It is idempotent: a ledger that already carries the columns is left al
 
 Why pad instead of dropping: every existing row is a real measurement and the values being
 added are known, not guessed. Until 2026-09-02 exactly one install wrote here - a single
-profile on this machine, which has run Lea alone since 2026-08-30 (plugins uninstalled, one
-SessionStart hook). So `user`, `host` and `lea_config` are recoverable facts for those rows,
+profile, which had run Lea alone since 2026-08-30 (plugins uninstalled, one SessionStart
+hook). So `user`, `host` and `lea_config` are recoverable facts for those rows,
 and the whole point of the columns is that from now on nothing has to be recovered.
 
     python shadow/migrate_ledgers.py [--user <name>] [--host <name>] [--dry-run]

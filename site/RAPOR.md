@@ -4,7 +4,7 @@
 
 Gölge kolunun **oran taşıyabilen** çift sayısı, hedef 20. Bu sayı hedefe ulaşınca manşet izdüşüm olmaktan çıkıp doğrudan ölçüme dayanabilir — dolana kadar `lea.js` değişmiyor.
 
-Bütün ölçümler tek sayfada. **2026-09-04 12:51** tarihinde `savings.py` tarafından üretildi —
+Bütün ölçümler tek sayfada. **2026-09-04 15:29** tarihinde `savings.py` tarafından üretildi —
 elle düzenlenmiyor.
 
 > Bu sayfa GitHub'da açılır çünkü Markdown. Yanındaki `.html` raporlar açılmaz: GitHub HTML'i
@@ -19,7 +19,7 @@ elle düzenlenmiyor.
 | Ölçülen gerçek harcama | $1,007.74 · 148 istem · 3,705 tur |
 | Aynı iş `full` config'iyle | $1,370 |
 | Üst sınır (en iyi ölçülen tur) | $1,065 · −51% |
-| Bunu kanıtlamanın maliyeti | $10.91 · 11 gölge koşusu |
+| Bunu kanıtlamanın maliyeti | $11.29 · 12 gölge koşusu |
 
 Manşet **alt sınır**: dört ölçülmüş turun Lea'ya en az kazandıranını kullanıyor
 (Kolay bug fix, n=3/3). Ölçülmüş oran × ölçülmüş harcama — doğrudan ölçülmüş tasarruf
@@ -56,10 +56,10 @@ bütçesinin doğrudan kestiği kalem en küçüğü — asıl kaldıraç **tur 
 
 | | |
 |---|---|
-| kayıtlı istem | 183 |
-| koşan | 11 |
-| harcanan | $10.91 |
-| karşılaştırılabilir çift | 3 |
+| kayıtlı istem | 197 |
+| koşan | 12 |
+| harcanan | $11.29 |
+| karşılaştırılabilir çift | 4 |
 | **oran taşıyabilen çift** | **0 / 20** |
 
 Alttaki satır ilerlemeyi gösteren tek sayı. Üstteki "aynı istem iki kola soruldu" demek;
@@ -75,8 +75,9 @@ Aynı istem, iki kol, aynı ağaçtan.
 | 2026-09-02 21:24 | local | bare | 23 / 13 | 19k / 6k | 1.3M / 251k | ? / 0 |
 | 2026-09-03 06:52 | local | bare | 4 / 4 | 527 / 1k | 161k / 90k | ? / 0 |
 | 2026-09-03 08:05 | local | bare | 57 / 25 | 81k / 25k | 5.0M / 1.0M | ? / 1 |
+| 2026-09-04 10:58 | local | bare | 28 / 9 | 32k / 5k | 1.3M / 159k | 1942 / 0 |
 
-**Bu çiftlerden 3 tanesi oran taşıyamaz.** Son sütun sebebi: bir kol iş yaptı, diğeri yapmadı — ya da sayı hiç kaydedilmedi. Az iş yapmak her zaman ucuzdur, o yüzden bu satırlar gösteriliyor ama ortalamaya girmiyor. Gölge kolunun 2026-09-03'e kadarki bütün çiftlerinde Lea tarafının diff'i kayıp: `git diff` proje kökünü tararken `shadow/runs/` içindeki eski kopyalara giriyor, bir yol Windows sınırını geçiyor ve komut hiçbir şey yazmadan çıkıyordu. Düzeltildi; bundan sonraki çiftlerde bu sütun dolu gelecek.
+**Bu çiftlerden 4 tanesi oran taşıyamaz.** Son sütun sebebi: bir kol iş yaptı, diğeri yapmadı — ya da sayı hiç kaydedilmedi. Az iş yapmak her zaman ucuzdur, o yüzden bu satırlar gösteriliyor ama ortalamaya girmiyor. Gölge kolunun 2026-09-03'e kadarki bütün çiftlerinde Lea tarafının diff'i kayıp: `git diff` proje kökünü tararken `shadow/runs/` içindeki eski kopyalara giriyor, bir yol Windows sınırını geçiyor ve komut hiçbir şey yazmadan çıkıyordu. Düzeltildi; bundan sonraki çiftlerde bu sütun dolu gelecek.
 
 ## Tam raporlar
 
