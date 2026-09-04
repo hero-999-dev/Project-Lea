@@ -74,8 +74,16 @@ carry a ratio (the statusline shows `cift N/20`), or a benchmark round - fixed t
 tests, n=20 per arm, both arms the same day. That is how v8 was decided: rewriting one paragraph,
 the exception clause from permission to obligation, moved the hard round from 4/20 to 13/20.
 
-`lea.js` must stay **byte-identical** to the measured version while it is the thing being
-measured. Changing it silently invalidates every row collected since.
+While Lea is the thing being measured, what must not change is **the banner it emits** -
+that is the whole independent variable, and the file around it is not. Checked on
+2026-09-04: the live `~/.claude/hooks/lea.js` and the measured `bench/hooks/lea-v8.js`
+differ by 43 lines, every one of them a comment, and emit the same 226 words. So compare
+output, not files - the rule used to say byte-identical, which was already false and would
+have sent someone to "fix" a difference that changes nothing.
+
+A candidate is a candidate only if its banner differs from v8 in ONE paragraph and nothing
+else. The three v9 candidates were verified that way: paragraph 5 of 6, +25 / +12 / +29
+words, same six paragraphs.
 
 ## Things that will bite you
 
