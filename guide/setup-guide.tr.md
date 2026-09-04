@@ -149,6 +149,16 @@ ve satırları her Lea iddiasının dışında bırakılır, sessizce ortalamaya
 Statusline, gölge kolunun bu oturumla ne yapacağını söylüyor: çalışma dizini kopyalanabiliyorsa
 **`shadow`**, kopyalanamıyorsa geri dönüş işareti.
 
+Kolun asıl ürettiği sayı da orada: **`cift N/20`** — iki kolun aynı istemi cevapladığı *ve*
+karşılaştırılabilir miktarda iş yaptığı çift sayısı. Sıfırda kırmızı, toplarken sarı, hedefte
+yeşil; hedef, tasarruf rakamının izdüşüm olmaktan çıkıp doğrudan ölçüme dönebileceği nokta.
+Bu sayıyı hesaplamak ~0,6 sn sürüyor — sürekli yeniden çizilen bir yerde çok uzun — o yüzden
+Stop hook''u tur başına bir kez `shadow/counter.py`''yi ayrık çalıştırıyor, statusline de sadece
+bıraktığı küçük JSON''u okuyor. Dosya yoksa bölüm de yok.
+
+`install.ps1` bu statusline''ı yalnızca kendi statusline''ı olmayan profile kuruyor; seninki
+senin, ve dokunmadığında bunu söylüyor.
+
 **`claude`'u belirli bir yerden başlatmak zorunda değilsin.** Kol, çalışma dizininin bir
 *kopyasının* içinde cevap verir, yani o dizinin kopyalanabilir olması gerekir — ama hangi
 dizinlerin kopyalanabilir olduğuna hatırlaman gereken bir kural değil, bir ön tarama karar verir;

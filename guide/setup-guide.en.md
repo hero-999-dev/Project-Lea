@@ -150,6 +150,16 @@ its rows are excluded from every Lea claim rather than quietly averaged in.
 The statusline says what the shadow arm will do with this session: **`shadow`** when the working
 directory can be copied, and a fallback marker when it cannot.
 
+It also carries the count the arm exists to produce: **`cift N/20`** — pairs where both arms
+answered the same prompt *and* did comparable amounts of work. Red at zero, amber while
+collecting, green at the target, which is where the savings figure may stop being a projection
+and become a direct measurement. Working that number out takes about 0.6 s, far too long for
+something that redraws constantly, so the Stop hook runs `shadow/counter.py` detached once per
+turn and the statusline only reads the small JSON it leaves behind. No file, no segment.
+
+`install.ps1` sets this statusline only on a profile that does not already have one; yours is
+your own, and it says so when it leaves it alone.
+
 **You do not have to start `claude` anywhere in particular.** The arm answers inside a *copy* of
 the working directory, so that directory has to be copyable — but which directories are is
 decided by a probe, not by a rule you remember, and the probe is the copy routine itself, so it

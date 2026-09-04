@@ -125,10 +125,10 @@ if ((Test-Path $pointer) -and -not $Force) {
 
 # ---- files ------------------------------------------------------------------------------
 New-Item -ItemType Directory -Force -Path $hooksDir, $shadowDir | Out-Null
-foreach ($f in 'shadow-enqueue.js', 'shadow-collect.js', 'shadow-hidden-launch.vbs') {
+foreach ($f in 'shadow-enqueue.js', 'shadow-collect.js', 'shadow-hidden-launch.vbs', 'statusline.ps1') {
     Copy-Item (Join-Path $payload $f) (Join-Path $hooksDir $f) -Force
 }
-foreach ($f in 'run-shadow.ps1', 'lib.ps1', 'pick.py', 'report.py', 'migrate_ledgers.py') {
+foreach ($f in 'run-shadow.ps1', 'lib.ps1', 'pick.py', 'report.py', 'counter.py', 'migrate_ledgers.py') {
     Copy-Item (Join-Path $payload $f) (Join-Path $shadowDir $f) -Force
 }
 Copy-Item (Join-Path $payload 'cfg') $shadowDir -Recurse -Force
@@ -326,6 +326,25 @@ $settings['hooks'] = $hooks
 # the rate-limit response headers, so it exists only once a limit has been hit.
 if (-not $NoAutoContinue) {
     $settings['autoContinueAtUsageLimit'] = $true
+}
+
+# The statusline, and only if the profile has none. It shows the directory, the model, whether
+# the shadow arm will act on this session, and the count of pairs that can carry a ratio - the
+# number that decides whether the savings figure may stop being a projection. Worth having where
+# it is seen without being asked for.
+#
+# Never overwritten. A statusline is a personal thing and someone who already has one has chosen
+# it; replacing it would be the installer deciding something that is not its business. Said out
+# loud either way, so a profile that ends up without the badge knows why.
+if ($settings['statusLine']) {
+    Say "  statusline left alone - this profile already has one" Yellow
+    Say "    to show the pair counter, add a segment that reads shadow\counter.json" Gray
+}
+else {
+    $settings['statusLine'] = @{
+        type    = 'command'
+        command = "pwsh -NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $hooksDir 'statusline.ps1')`""
+    }
 }
 
 $settings | ConvertTo-Json -Depth 10 | Set-Content $settingsPath -Encoding utf8

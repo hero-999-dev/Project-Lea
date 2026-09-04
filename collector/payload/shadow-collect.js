@@ -188,6 +188,25 @@ function main(input) {
     process.env.COMPUTERNAME || "", liveConfig()]) + "\n");
   fs.writeFileSync(path.join(runDir, "lea.recorded"), "", "utf8");
   prune();
+  refreshCounter();
+}
+
+// Refresh the number the statusline shows: how many pairs can carry a ratio, out of the target.
+//
+// Detached and unwaited. The computation joins both ledgers and reads each run's artifacts -
+// about 0.6 s - which is nothing once per turn and far too much on a statusline that redraws
+// constantly, so it happens here and the statusline only reads the JSON left behind. Failure is
+// silent by design: a missing python, a missing script, a broken ledger must cost the user
+// nothing more than a stale badge, and must never look like a failure of the turn that ran it.
+function refreshCounter() {
+  try {
+    const script = path.join(SHADOW, "counter.py");
+    if (!fs.existsSync(script)) return;
+    const child = require("child_process").spawn("python", [script],
+      { detached: true, stdio: "ignore", windowsHide: true });
+    child.on("error", () => {});
+    child.unref();
+  } catch {}
 }
 
 // Each run holds two copies of the project, so a 50 MB project costs 100 MB per prompt. Only
@@ -314,4 +333,4 @@ if (require.main === module) {
   setTimeout(() => process.exit(0), 8000).unref();
 }
 
-module.exports = { leaPatch, prune, sessionCost, liveConfig, csvRow };
+module.exports = { leaPatch, prune, sessionCost, liveConfig, csvRow, refreshCounter };
