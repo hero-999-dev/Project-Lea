@@ -121,6 +121,26 @@ if ($Statusline) {
     Did "statusline.ps1$(if ($b) { ' (old copy kept)' })"
 }
 
+# ---- the skill ---------------------------------------------------------------------------------
+# Per profile, not per machine: Claude Code reads skills from the profile's own ~/.claude/skills,
+# so the second Windows account needs its own copy or "let's optimise Lea" works on one login and
+# not the other. It carries no path - it locates the install through shadow-dir.txt below.
+$SkillSource = Join-Path (Split-Path $PSScriptRoot -Parent) 'config\skills\lea\SKILL.md'
+if (Test-Path -LiteralPath $SkillSource) {
+    $SkillDest = Join-Path $Dot 'skills\lea\SKILL.md'
+    $same = (Test-Path -LiteralPath $SkillDest) -and
+            ((Get-FileHash -LiteralPath $SkillDest).Hash -eq (Get-FileHash -LiteralPath $SkillSource).Hash)
+    if ($same) { Skip 'skills\lea\SKILL.md already current' }
+    else {
+        $b = Backup $SkillDest
+        if (-not $WhatIf) {
+            New-Item -ItemType Directory -Force -Path (Split-Path $SkillDest -Parent) | Out-Null
+            Copy-Item -LiteralPath $SkillSource -Destination $SkillDest -Force
+        }
+        Did "skills\lea\SKILL.md$(if ($b) { ' (old copy kept)' })"
+    }
+}
+
 # ---- the pointer -------------------------------------------------------------------------------
 # Both installs resolve the shadow directory through this file, which is what makes one ledger
 # out of two profiles. Repointing an existing one would orphan whatever it names, so say so.

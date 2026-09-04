@@ -192,6 +192,20 @@ if (-not $SkipLea) {
     Say '  Lea hook installed' Green
 }
 
+# ---- the skill that lets a session anywhere pick this work up ------------------------------
+# Claude Code scopes its memory per working directory, so notes written while working on Lea are
+# invisible from the next project. A user-level skill is not scoped that way: it is listed in
+# every session on this profile, which is what makes "let's optimise Lea" work from a directory
+# that has never heard of it. It carries no path of its own - it finds the install through
+# shadow-dir.txt, the same pointer the hooks use.
+$skillSource = Join-Path (Split-Path $here -Parent) 'config\skills\lea\SKILL.md'
+if (Test-Path $skillSource) {
+    $skillDir = Join-Path $claudeDir 'skills\lea'
+    New-Item -ItemType Directory -Force -Path $skillDir | Out-Null
+    Copy-Item $skillSource (Join-Path $skillDir 'SKILL.md') -Force
+    Say '  lea skill installed (say "Lea''yi optimize edelim" in any session)' Green
+}
+
 # ---- the backup comes first, because the next step lets the CLI write here too -------------
 if (Test-Path $settingsPath) {
     $backup = "$settingsPath.before-lea-collector-$(Get-Date -Format yyyyMMdd-HHmmss)"
