@@ -276,7 +276,9 @@ def arm_comparison():
     by_cfg = {}
     for r in rows:
         cfg = (r.get('lea_config') or '').strip() or '(unlabelled)'
-        b = by_cfg.setdefault(cfg, {'cost': [], 'turns': [], 'cr': [], 'days': set()})
+        b = by_cfg.setdefault(cfg, {'cost': [], 'turns': [], 'cr': [], 'days': set(),
+                                    'users': set()})
+        b['users'].add(r.get('user') or '?')
         for key, field in (('cost', 'cost_usd'), ('turns', 'turns'), ('cr', 'cache_read_tokens')):
             v = num(r, field)
             if v:
@@ -296,9 +298,31 @@ def arm_comparison():
         print('  %-18s %5d %5d %12.2f %9.3f %11.0f'
               % (cfg, len(b['cost']), len(b['days']), sum(b['cost']),
                  st.median(b['cost']), st.median(b['turns']) if b['turns'] else 0))
-    if len([c for c in by_cfg if c.startswith('lea')]) == len(by_cfg):
+    # Only an unsuffixed label is an arm. `other-carried-lea` and `lea-no-banner` mean the
+    # settings and the transcript disagreed about what was running, and counting one of those as
+    # the second arm would announce a comparison that does not exist - which it did, until the
+    # test asked for exactly that case.
+    clean = {c: b for c, b in by_cfg.items() if '-' not in c and b['cost']}
+    lea_users = set().union(*[b['users'] for c, b in clean.items() if c.startswith('lea')] or [set()])
+    stok_users = set().union(*[b['users'] for c, b in clean.items() if not c.startswith('lea')] or [set()])
+
+    if not lea_users or not stok_users:
         print('  -> one arm only, so there is nothing to compare yet. Run a session with')
         print('     `python shadow/arm.py stok`, restart the CLI, and work normally.')
+        return
+
+    # An arm that only ever ran on one install is not an arm, it is that install. This is the
+    # same failure PRENSIPLER rule 6 is about, one level up: with `lea` confined to one Windows
+    # profile and `other` to another, every difference between the two is also a difference
+    # between profiles - different account, different budget, possibly different work - and no
+    # amount of n separates them. The fix is to alternate the arm WITHIN a profile over time,
+    # not to give each profile an arm and leave it there.
+    if lea_users and stok_users and not (lea_users & stok_users):
+        print('\n  ! the two arms have no install in common - %s vs %s.'
+              % ('/'.join(sorted(lea_users)), '/'.join(sorted(stok_users))))
+        print('    Whatever separates them separates the profiles too, so this cannot be read as')
+        print('    a ruleset difference. Switch arms within one profile instead of pinning one')
+        print('    arm per profile.')
 
 
 def work_matched(r):

@@ -81,10 +81,10 @@ footer { margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--bord
 
 <h1>Gölge kolu: ne topladı, neden bu kadar az</h1>
 <p class="sub">Her istemi ikinci kez, stok bir config ile, dizinin bir kopyasında cevaplayan
-arka plan kolu. 2026-09-04 12:38 tarihinde <code>savings.py</code> tarafından üretildi.</p>
+arka plan kolu. 2026-09-04 12:51 tarihinde <code>savings.py</code> tarafından üretildi.</p>
 
 <div class="note">
-<strong>182 istem kaydedildi, 11 tanesi koştu, $10.91 harcandı,
+<strong>183 istem kaydedildi, 11 tanesi koştu, $10.91 harcandı,
 karşılaştırılabilir çift sayısı <em>3</em>.</strong>
 Yani tasarruf rakamı hâlâ bir izdüşüm. 3 çift aynı istemi iki kola sordu, ama <strong>oran taşıyabilen 0</strong>: bir kolun iş yapıp diğerinin yapmadığı bir çiftten çıkan oran ölçüm değil. Hedef ~20, sayaç 0/20. Bu, ölçüm düzeneğinin bozuk olduğu anlamına gelmiyor &mdash; kabul kriterleri
 kasıtlı olarak sıkı, çünkü 31 Ağustos&rsquo;ta gevşek kriterle toplanan 5 çiftin 5&rsquo;i de
@@ -94,12 +94,12 @@ karşılaştırılamazdı ve $5,74 boşa gitti.
 <h2>Gün gün: kaç koşu, ne eledi</h2>
 <div class="scroll"><table>
 <thead><tr><th>gün</th><th>koştu</th><th>Oturum ortasında geldi</th><th>İstem çok kısa</th><th>Ev dizininde ajanslı istem (eski kural)</th><th>Onay kalıbı</th><th>Başka koşu sürüyor</th><th>Diğer</th><th>Kuyruğa alındı</th></tr></thead>
-<tbody><tr><td>2026-08-30</td><td><b>3</b></td><td></td><td>3</td><td>8</td><td></td><td></td><td></td><td></td></tr><tr><td>2026-08-31</td><td><b>4</b></td><td>22</td><td>11</td><td></td><td></td><td>1</td><td></td><td>1</td></tr><tr><td>2026-09-01</td><td><b>0</b></td><td>31</td><td>6</td><td></td><td>2</td><td></td><td></td><td></td></tr><tr><td>2026-09-02</td><td><b>1</b></td><td>44</td><td>1</td><td>2</td><td></td><td></td><td>1</td><td></td></tr><tr><td>2026-09-03</td><td><b>3</b></td><td>24</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>2026-09-04</td><td><b>0</b></td><td>14</td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table></div>
+<tbody><tr><td>2026-08-30</td><td><b>3</b></td><td></td><td>3</td><td>8</td><td></td><td></td><td></td><td></td></tr><tr><td>2026-08-31</td><td><b>4</b></td><td>22</td><td>11</td><td></td><td></td><td>1</td><td></td><td>1</td></tr><tr><td>2026-09-01</td><td><b>0</b></td><td>31</td><td>6</td><td></td><td>2</td><td></td><td></td><td></td></tr><tr><td>2026-09-02</td><td><b>1</b></td><td>44</td><td>1</td><td>2</td><td></td><td></td><td>1</td><td></td></tr><tr><td>2026-09-03</td><td><b>3</b></td><td>24</td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>2026-09-04</td><td><b>0</b></td><td>15</td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table></div>
 
 <h2>Elemelerin dökümü</h2>
 <div class="scroll"><table>
 <thead><tr><th>sebep</th><th>istem</th><th>neden eleniyor</th></tr></thead>
-<tbody><tr><td>Oturum ortasında geldi</td><td>135</td><td>Gölge kolunun çözebileceği bir konuşma yok: aynı istem iki kola aynı problemi vermiyor.</td></tr><tr><td>İstem çok kısa</td><td>21</td><td>min_prompt_chars altında. "ok" türü onayları defterden uzak tutmak için.</td></tr><tr><td>Ev dizininde ajanslı istem (eski kural)</td><td>10</td><td>2026-09-02 öncesi: cwd ev diziniyse istem atılıyordu. Artık project_roots devreye giriyor.</td></tr><tr><td>Onay kalıbı</td><td>2</td><td>evet / tamam / devam gibi; zaten bir ölçüm değil.</td></tr><tr><td>Başka koşu sürüyor</td><td>1</td><td>Aynı anda tek koşu - her biri durum dosyasının tamamını yeniden yazıyor.</td></tr><tr><td>Diğer</td><td>1</td><td></td></tr></tbody></table></div>
+<tbody><tr><td>Oturum ortasında geldi</td><td>136</td><td>Gölge kolunun çözebileceği bir konuşma yok: aynı istem iki kola aynı problemi vermiyor.</td></tr><tr><td>İstem çok kısa</td><td>21</td><td>min_prompt_chars altında. "ok" türü onayları defterden uzak tutmak için.</td></tr><tr><td>Ev dizininde ajanslı istem (eski kural)</td><td>10</td><td>2026-09-02 öncesi: cwd ev diziniyse istem atılıyordu. Artık project_roots devreye giriyor.</td></tr><tr><td>Onay kalıbı</td><td>2</td><td>evet / tamam / devam gibi; zaten bir ölçüm değil.</td></tr><tr><td>Başka koşu sürüyor</td><td>1</td><td>Aynı anda tek koşu - her biri durum dosyasının tamamını yeniden yazıyor.</td></tr><tr><td>Diğer</td><td>1</td><td></td></tr></tbody></table></div>
 
 <div class="note"><strong>2026-09-02&rsquo;de bulunan hata: oturumu açan istem, tam da
 kaçırılması garanti olan istemdi.</strong> Hook <code>UserPromptSubmit</code>&rsquo;te
@@ -118,12 +118,12 @@ zamanlamasına bağlı değil. Beş durumda da doğrulandı.</div>
 <li><strong>Oturum başına tek şans.</strong> Yalnızca bir oturumu <em>açan</em> istem
 karşılaştırılabilir; sonrasında istem, konuşmanın ona yüklediği anlamı taşır ve gölge kolunun
 o konuşması yoktur. Bu kural doğru, ama uzun oturum = az örnek demek: Lea defterinde
-151 satır var ve bir oturum 400 turu geçebiliyor. Ölçüldü: kayıtlı istemlerin
+152 satır var ve bir oturum 400 turu geçebiliyor. Ölçüldü: kayıtlı istemlerin
 transcript&rsquo;lerle eşleşen 90 tanesinin <strong>yalnızca 10&rsquo;u</strong> bir oturum
 açmıştı. &ldquo;Onlarca koşu birikmiş olmalı&rdquo; beklentisinin cevabı bu: tavan zaten
 istem sayısı değil, <em>oturum</em> sayısı.</li>
 <li><strong>Ev dizininden başlatılan oturumlar &mdash; artık kayıp değil.</strong> Lea defterindeki
-151 satırdan 97 tanesi bir <em>ev dizininden</em> geldi
+152 satırdan 98 tanesi bir <em>ev dizininden</em> geldi
 ve 2026-09-02&rsquo;ye kadar hepsi eleniyordu. Artık çalışma dizini limitlere
 sığmadığında koşucu <code>project_roots</code>&rsquo;taki ilk uygun dizine düşüyor ve satıra
 <code>tree_root</code> yazıyor; <code>report.py</code> bunu Lea&rsquo;nın kendi dizini ile
@@ -158,8 +158,8 @@ testinden önce bakılıyordu, yani kısa bir açıcı istem defterde &ldquo;ço
 görünüp o oturumun tek şansını sessizce harcıyordu. Artık oturum-başı testi ilk sırada.</li>
 </ol>
 
-<footer>Kaynak: <code>shadow/shadow.csv</code> (182 satır) ve
-<code>shadow/lea.csv</code> (151 satır). Ayrıntılı eşleme için
+<footer>Kaynak: <code>shadow/shadow.csv</code> (183 satır) ve
+<code>shadow/lea.csv</code> (152 satır). Ayrıntılı eşleme için
 <code>python shadow/report.py</code>. Bu sayfayı tazelemek için <code>python savings.py</code>.</footer>
 
 </div>
