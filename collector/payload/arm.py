@@ -43,10 +43,57 @@ from datetime import datetime
 HOME = os.environ.get('USERPROFILE') or os.path.expanduser('~')
 SETTINGS = os.path.join(HOME, '.claude', 'settings.json')
 
-# Where a disabled entry is parked. Claude Code ignores unknown top-level keys, and keeping the
-# original object means turning Lea back on restores exactly what was there - matcher, timeout
-# and all - instead of a plausible reconstruction of it.
-PARK = '_leaSessionStartDisabled'
+# Where a disabled entry is parked, and why it is not in settings.json.
+#
+# It was, under an unknown top-level key, on the assumption that Claude Code ignores keys it does
+# not recognise. It does not: a hook-shaped entry declared anywhere but under "hooks" makes the
+# CLI reject the ENTIRE file - "Files with errors are skipped entirely, not just the invalid
+# settings" - so parking Lea there took the shadow arm's own two hooks down with it, silently,
+# until the next start printed a settings error. Found the first time the switch was used for
+# real.
+#
+# So the entry is parked beside the ledger instead, where this project's state already lives, and
+# settings.json is left a valid settings file. Keeping the original object rather than a flag
+# still matters: turning Lea back on restores exactly what was there - matcher, timeout,
+# statusMessage - instead of a plausible reconstruction.
+PARK_KEY = '_leaSessionStartDisabled'      # the old location, migrated on sight
+
+
+def park_file():
+    """Beside the ledger, found through the same pointer every hook uses."""
+    try:
+        p = io.open(os.path.join(HOME, '.claude', 'shadow-dir.txt'), encoding='utf-8').read().strip()
+        if p and os.path.isdir(p):
+            return os.path.join(p, 'arm-parked.json')
+    except Exception:
+        pass
+    return os.path.join(HOME, '.claude', 'arm-parked.json')
+
+
+def read_park(cfg):
+    """The parked entry, from the file - or from the old settings key, so an install that was
+    switched off by the previous version can still be switched back on."""
+    if PARK_KEY in cfg:
+        return cfg[PARK_KEY]
+    try:
+        return json.load(io.open(park_file(), encoding='utf-8-sig'))
+    except Exception:
+        return None
+
+
+def write_park(entries):
+    path = park_file()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with io.open(path, 'w', encoding='utf-8') as fh:
+        json.dump(entries, fh, indent=2, ensure_ascii=False)
+
+
+def clear_park(cfg):
+    cfg.pop(PARK_KEY, None)
+    try:
+        os.remove(park_file())
+    except OSError:
+        pass
 
 
 def load():
@@ -102,17 +149,19 @@ def turn_off(cfg):
         hooks['SessionStart'] = keep
     else:
         hooks.pop('SessionStart', None)
-    cfg[PARK] = parked
+    write_park(parked)
+    cfg.pop(PARK_KEY, None)          # never leave the old shape behind
     return True
 
 
 def turn_on(cfg):
-    parked = cfg.pop(PARK, None)
+    parked = read_park(cfg)
     if not parked:
         return False
     hooks = cfg.setdefault('hooks', {})
     hooks['SessionStart'] = list(parked) + [e for e in entries(cfg)
                                             if 'lea.js' not in json.dumps(e)]
+    clear_park(cfg)
     return True
 
 
