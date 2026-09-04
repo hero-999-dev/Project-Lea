@@ -13,7 +13,7 @@ dependencies, that matched or beat 6,000-token plugin stacks at 13–53% lower c
 single paragraph of it — the exception clause, from permission to obligation — took the hard
 round from 4/20 correct to 13/20, with both arms measured the same day.
 
-[![oran tasiyabilen cift](site/rozet.svg)](site/RAPOR.md)
+[![usable pairs](site/rozet.svg)](site/RAPOR.md)
 
 That badge is the shadow arm's progress, and the only number worth checking back for: pairs where
 both arms answered the same prompt **and** did comparable work. At the target, the savings

@@ -47,8 +47,8 @@ try {
     $Plugins = @($S.enabledPlugins.PSObject.Properties | Where-Object { $_.Value }).Count
     $HasLea = ($S.hooks.SessionStart | ConvertTo-Json -Depth 10 -Compress) -match 'lea\.js'
     if ($HasLea -and $Plugins -eq 0) { $Arm = @('Project Lea', 117) }
-    elseif ($HasLea) { $Arm = @("Project Lea +$Plugins eklenti", 179) }
-    else { $Arm = @('stok kol', 208) }
+    elseif ($HasLea) { $Arm = @("Project Lea +$Plugins plugins", 179) }
+    else { $Arm = @('stock arm', 208) }
 } catch {}
 if ($Arm) { Write-Segment $Arm[0] $Arm[1] }
 
@@ -76,7 +76,7 @@ if (Test-Path -LiteralPath (Join-Path $HOME '.claude\hooks\shadow-enqueue.js')) 
             $ShadowCfg = Get-Content -LiteralPath (Join-Path $ShadowDir 'config.json') -Raw | ConvertFrom-Json
             $HasRoots = @($ShadowCfg.project_roots).Where({ $_ }).Count -gt 0
         } catch {}
-        if ($HasRoots) { Write-Segment 'shadow: proje kokune duser' 179 }
+        if ($HasRoots) { Write-Segment 'shadow: project root' 179 }
         else { Write-Segment 'shadow: prose only' 244 }
     }
 }
@@ -100,7 +100,7 @@ try {
         # Red at zero, amber while collecting, green at the target - the same three states the
         # SVG badge uses, so the two cannot say different things at a glance.
         $Colour = if ($Have -ge $Need) { 114 } elseif ($Have -gt 0) { 179 } else { 203 }
-        Write-Segment "cift $Have/$Need" $Colour
+        Write-Segment "pairs $Have/$Need" $Colour
 
         # The wide comparison, which is the one a stock session actually fills. Without it a
         # stock session shows no progress anywhere - the pair counter cannot move from one - and
@@ -110,7 +110,7 @@ try {
         $Stok = [int]$C.stok_rows
         if ($Lea -gt 0 -or $Stok -gt 0) {
             $Both = if ($Lea -gt 0 -and $Stok -gt 0) { 114 } else { 244 }
-            Write-Segment "lea $Lea / stok $Stok" $Both
+            Write-Segment "lea $Lea / stock $Stok" $Both
         }
     }
 } catch {}

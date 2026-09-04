@@ -149,7 +149,7 @@ ve satırları her Lea iddiasının dışında bırakılır, sessizce ortalamaya
 Statusline, gölge kolunun bu oturumla ne yapacağını söylüyor: çalışma dizini kopyalanabiliyorsa
 **`shadow`**, kopyalanamıyorsa geri dönüş işareti.
 
-Kolun asıl ürettiği sayı da orada: **`cift N/20`** — iki kolun aynı istemi cevapladığı *ve*
+Kolun asıl ürettiği sayı da orada: **`pairs N/20`** — iki kolun aynı istemi cevapladığı *ve*
 karşılaştırılabilir miktarda iş yaptığı çift sayısı. Sıfırda kırmızı, toplarken sarı, hedefte
 yeşil; hedef, tasarruf rakamının izdüşüm olmaktan çıkıp doğrudan ölçüme dönebileceği nokta.
 Bu sayıyı hesaplamak ~0,6 sn sürüyor — sürekli yeniden çizilen bir yerde çok uzun — o yüzden
@@ -183,7 +183,7 @@ python shadow/arm.py lea        # ve geri
 `settings.json` içindeki tek girdiyi — `lea.js`'yi yükleyen SessionStart hook'unu — Claude
 Code'un yok saydığı bir anahtara park ediyor, böylece geri dönüş yeniden kurgulanmış değil
 birebir oluyor. Gölge hook'larına dokunmuyor; dokunsa geçtiğin kolu defter kaydetmezdi.
-Sonrasında CLI'ı yeniden başlat; statusline **`Project Lea`** ya da **`stok kol`** diyor ki bir
+Sonrasında CLI'ı yeniden başlat; statusline **`Project Lea`** ya da **`stock arm`** diyor ki bir
 oturum kafanda yanlış etiketlenmesin. `python shadow/report.py` ikisini yan yana basıyor.
 
 **Bu eşleştirilmiş bir karşılaştırma değildir ve öyle raporlanmaz.** İki oturum farklı iştir;

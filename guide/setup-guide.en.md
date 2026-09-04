@@ -150,7 +150,7 @@ its rows are excluded from every Lea claim rather than quietly averaged in.
 The statusline says what the shadow arm will do with this session: **`shadow`** when the working
 directory can be copied, and a fallback marker when it cannot.
 
-It also carries the count the arm exists to produce: **`cift N/20`** — pairs where both arms
+It also carries the count the arm exists to produce: **`pairs N/20`** — pairs where both arms
 answered the same prompt *and* did comparable amounts of work. Red at zero, amber while
 collecting, green at the target, which is where the savings figure may stop being a projection
 and become a direct measurement. Working that number out takes about 0.6 s, far too long for
@@ -184,7 +184,7 @@ python shadow/arm.py lea        # and back
 It moves one entry in `settings.json` — the SessionStart hook that loads `lea.js`, parked under a
 key Claude Code ignores so switching back is exact rather than reconstructed. The shadow hooks are
 left alone, or the ledger would stop recording the arm you switched to. Restart the CLI
-afterwards; the statusline says **`Project Lea`** or **`stok kol`** so a session cannot be mislabelled
+afterwards; the statusline says **`Project Lea`** or **`stock arm`** so a session cannot be mislabelled
 in your head. `python shadow/report.py` prints the two side by side.
 
 **It is not a paired comparison and must not be reported as one.** Two sessions are different

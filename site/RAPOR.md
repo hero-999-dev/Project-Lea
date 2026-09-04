@@ -1,10 +1,10 @@
 # Raporlar
 
-![oran tasiyabilen cift](rozet.svg)
+![usable pairs](rozet.svg)
 
 Gölge kolunun **oran taşıyabilen** çift sayısı, hedef 20. Bu sayı hedefe ulaşınca manşet izdüşüm olmaktan çıkıp doğrudan ölçüme dayanabilir — dolana kadar `lea.js` değişmiyor.
 
-Bütün ölçümler tek sayfada. **2026-09-04 12:35** tarihinde `savings.py` tarafından üretildi —
+Bütün ölçümler tek sayfada. **2026-09-04 12:38** tarihinde `savings.py` tarafından üretildi —
 elle düzenlenmiyor.
 
 > Bu sayfa GitHub'da açılır çünkü Markdown. Yanındaki `.html` raporlar açılmaz: GitHub HTML'i
@@ -56,7 +56,7 @@ bütçesinin doğrudan kestiği kalem en küçüğü — asıl kaldıraç **tur 
 
 | | |
 |---|---|
-| kayıtlı istem | 181 |
+| kayıtlı istem | 182 |
 | koşan | 11 |
 | harcanan | $10.91 |
 | karşılaştırılabilir çift | 3 |
