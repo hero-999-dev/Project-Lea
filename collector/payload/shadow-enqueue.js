@@ -61,15 +61,30 @@ const slash = (v) => String(v).split(BS).join("/");   // cmd and pwsh both take 
 const WINDOW = 1 << 20;         // 1 MB per read
 const MAX_SCAN = 64 << 20;      // and never more than this in total, whatever the file holds
 
+// And a wall clock, because the byte bound alone was not one. The loop stops at the first
+// assistant record, so "one window" is the normal case - but a window that happens to hold no
+// such record buys another read, and a single tool result can be larger than a window. A session
+// whose tail is a run of huge results walks back megabytes, parsing every line, and on a loaded
+// machine that reached the 30 s hook budget on 2026-09-04. Raising the budget was the fix last
+// time, at 10 s, and it came back; a bound that does not depend on how big the records happen to
+// be is the fix that does not.
+//
+// The process-level setTimeout at the bottom of this file cannot do it: everything here is
+// synchronous, so the event loop never gets control and that timer can never fire. A deadline
+// inside the loop is the only kind that works.
+const SCAN_MS = 400;
+
 function scanTranscript(file) {
-  const res = { model: null, answered: false };
+  const res = { model: null, answered: false, aborted: false };
   if (!file) return res;
+  const deadline = Date.now() + SCAN_MS;
   let fd;
   try { fd = fs.openSync(file, "r"); } catch { return res; }
   try {
     let end = fs.fstatSync(fd).size;
     let scanned = 0;
     while (end > 0 && scanned < MAX_SCAN && !res.model) {
+      if (Date.now() > deadline) { res.aborted = true; break; }
       const start = Math.max(0, end - WINDOW);
       const buf = Buffer.alloc(end - start);
       fs.readSync(fd, buf, 0, buf.length, start);
@@ -189,6 +204,11 @@ function main(input) {
     "-PromptFile", slash(promptFile),
     "-Cwd", slash(hook.cwd || process.cwd()),
     "-Model", m.model];
+  // An aborted scan resolved no model either, so it is a guess by definition and the runner has
+  // to be told where to look. Without this the run would be billed under settings.json's alias -
+  // "opus" rather than "claude-opus-5" - which writes a second spelling of one model into the
+  // ledger and splits the dataset the report groups by.
+  if (scan.aborted) m.sure = false;
   // A guess travels with the transcript and a flag, so the runner can wait for the session's
   // first assistant record rather than bill a run under a model name that may not be the one
   // the session is using.
@@ -200,7 +220,13 @@ function main(input) {
   // alone. The pointer file says this hook has not seen the session before; the transcript says
   // the session has not answered anything. A resumed session fails the second even when its id
   // is new, and a session whose transcript is not on disk yet still passes the first.
-  if (firstOfSession && !scan.answered) args.push("-SessionStart");
+  //
+  // `aborted` is a third answer and it is not "no". The scan gave up on its deadline without
+  // reaching a verdict, so the session may well have answered already; claiming a session start
+  // on a pointer file alone would file a mid-conversation prompt as pairable, and a false pair
+  // is worse than a missed one - it enters the medians. Missing one costs a measurement that was
+  // never guaranteed anyway.
+  if (firstOfSession && !scan.answered && !scan.aborted) args.push("-SessionStart");
   const child = spawn("wscript", args, { detached: true, stdio: "ignore", windowsHide: true });
   child.unref();
 }
