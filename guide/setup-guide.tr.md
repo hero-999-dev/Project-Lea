@@ -159,6 +159,36 @@ bıraktığı küçük JSON''u okuyor. Dosya yoksa bölüm de yok.
 `install.ps1` bu statusline''ı yalnızca kendi statusline''ı olmayan profile kuruyor; seninki
 senin, ve dokunmadığında bunu söylüyor.
 
+### İki kol, ve neden iki tane
+
+Eşleştirilmiş gölge kolu yalnızca **oturumu açan** istemi ölçebiliyor — gölge koşusu boş bir
+bağlamda, dizinin kopyasında başlıyor, "şunu da düzelt" onun için hiçbir şey ifade etmiyor. Bu
+hesapta ölçüldü: oturum açan istemler **harcamanın %4,3'ü**, ve en az konuşma taşıyan dilim,
+yani kural setinin asıl kaldıracının en az işlediği yer.
+
+Stok kola aynı konuşmayı vermek kapsamayı düzeltirdi ama karşılanamıyor: buradaki medyan tur
+4,0M token taşıyor, taze bir koşu bunu cache-write olarak ödüyor — **bir kez $39,76, %90'da
+$206**, koşu başına $4 tavana karşı.
+
+O yüzden kapsama öbür uçtan alınıyor. Stop hook'u **her** turu fiyatlıyor ve hangi kural setinin
+ürettiğini yazıyor; bazı oturumları Lea kapalı geçirmek tek defteri ek maliyetsiz iki kola
+ayırıyor:
+
+```powershell
+python shadow/arm.py            # hangi kol hazir
+python shadow/arm.py stok       # sonraki oturum Lea'siz
+python shadow/arm.py lea        # ve geri
+```
+
+`settings.json` içindeki tek girdiyi — `lea.js`'yi yükleyen SessionStart hook'unu — Claude
+Code'un yok saydığı bir anahtara park ediyor, böylece geri dönüş yeniden kurgulanmış değil
+birebir oluyor. Gölge hook'larına dokunmuyor; dokunsa geçtiğin kolu defter kaydetmezdi.
+Sonrasında CLI'ı yeniden başlat; statusline **`Project Lea`** ya da **`stok kol`** diyor ki bir
+oturum kafanda yanlış etiketlenmesin. `python shadow/report.py` ikisini yan yana basıyor.
+
+**Bu eşleştirilmiş bir karşılaştırma değildir ve öyle raporlanmaz.** İki oturum farklı iştir;
+bu, dar ve pahalı ölçümün yanında duran geniş ve ucuz ölçüm.
+
 **`claude`'u belirli bir yerden başlatmak zorunda değilsin.** Kol, çalışma dizininin bir
 *kopyasının* içinde cevap verir, yani o dizinin kopyalanabilir olması gerekir — ama hangi
 dizinlerin kopyalanabilir olduğuna hatırlaman gereken bir kural değil, bir ön tarama karar verir;

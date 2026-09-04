@@ -34,9 +34,23 @@ if ($Dir) { Write-Segment (Split-Path -Leaf $Dir) 109 }
 $Model = $Status.model.display_name
 if ($Model) { Write-Segment $Model 245 }
 
-# 117 is the light blue of the xterm-256 palette; it reads on both dark and light terminals.
-$LeaHook = Join-Path $HOME '.claude\hooks\lea.js'
-if (Test-Path -LiteralPath $LeaHook) { Write-Segment 'Project Lea' 117 }
+# Which arm this session is running as, read from settings.json rather than from the presence of
+# lea.js on disk. The file stays put when the arm is switched - `shadow/arm.py` parks the hook
+# ENTRY, so a check for the file would have gone on saying "Project Lea" through a whole stock
+# session and the badge would have contradicted what the ledger recorded.
+#
+# Same rule as liveConfig() in shadow-collect.js: a SessionStart hook pointing at lea.js, and no
+# plugins. 117 is the light blue of the xterm-256 palette; it reads on dark and light terminals.
+$Arm = $null
+try {
+    $S = Get-Content -LiteralPath (Join-Path $HOME '.claude\settings.json') -Raw | ConvertFrom-Json
+    $Plugins = @($S.enabledPlugins.PSObject.Properties | Where-Object { $_.Value }).Count
+    $HasLea = ($S.hooks.SessionStart | ConvertTo-Json -Depth 10 -Compress) -match 'lea\.js'
+    if ($HasLea -and $Plugins -eq 0) { $Arm = @('Project Lea', 117) }
+    elseif ($HasLea) { $Arm = @("Project Lea +$Plugins eklenti", 179) }
+    else { $Arm = @('stok kol', 208) }
+} catch {}
+if ($Arm) { Write-Segment $Arm[0] $Arm[1] }
 
 # What the shadow arm will do with this session, said here rather than left as a rule to remember.
 # It answers each prompt a second time inside a COPY of the working directory, so the directory

@@ -160,6 +160,36 @@ turn and the statusline only reads the small JSON it leaves behind. No file, no 
 `install.ps1` sets this statusline only on a profile that does not already have one; yours is
 your own, and it says so when it leaves it alone.
 
+### The two arms, and why there are two
+
+The paired shadow arm can only ever measure a prompt that **opened its session** — a shadow run
+starts from an empty context in a copy of the directory, and "fix that too" means nothing to it.
+Measured on this account, session-opening prompts are **4.3% of the spend**, and they are the
+slice carrying the least conversation, which is where the ruleset's main lever applies least.
+
+Giving the stock arm the same conversation would fix the coverage and is not affordable: the
+median turn here carries 4.0M tokens, which a fresh run pays for as cache-write — **$39.76 once,
+$206 at the 90th percentile**, against a $4 per-run cap.
+
+So coverage is bought from the other end. The Stop hook prices **every** turn and records which
+ruleset produced it, so running some sessions without Lea splits one ledger into two arms at no
+extra cost:
+
+```powershell
+python shadow/arm.py            # which arm is armed
+python shadow/arm.py stok       # next session runs without Lea
+python shadow/arm.py lea        # and back
+```
+
+It moves one entry in `settings.json` — the SessionStart hook that loads `lea.js`, parked under a
+key Claude Code ignores so switching back is exact rather than reconstructed. The shadow hooks are
+left alone, or the ledger would stop recording the arm you switched to. Restart the CLI
+afterwards; the statusline says **`Project Lea`** or **`stok kol`** so a session cannot be mislabelled
+in your head. `python shadow/report.py` prints the two side by side.
+
+**It is not a paired comparison and must not be reported as one.** Two sessions are different
+work; this is the wide cheap measurement standing beside the narrow expensive one.
+
 **You do not have to start `claude` anywhere in particular.** The arm answers inside a *copy* of
 the working directory, so that directory has to be copyable — but which directories are is
 decided by a probe, not by a rule you remember, and the probe is the copy routine itself, so it

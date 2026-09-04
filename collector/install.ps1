@@ -128,7 +128,7 @@ New-Item -ItemType Directory -Force -Path $hooksDir, $shadowDir | Out-Null
 foreach ($f in 'shadow-enqueue.js', 'shadow-collect.js', 'shadow-hidden-launch.vbs', 'statusline.ps1') {
     Copy-Item (Join-Path $payload $f) (Join-Path $hooksDir $f) -Force
 }
-foreach ($f in 'run-shadow.ps1', 'lib.ps1', 'pick.py', 'report.py', 'counter.py', 'migrate_ledgers.py') {
+foreach ($f in 'run-shadow.ps1', 'lib.ps1', 'pick.py', 'report.py', 'counter.py', 'arm.py', 'migrate_ledgers.py') {
     Copy-Item (Join-Path $payload $f) (Join-Path $shadowDir $f) -Force
 }
 Copy-Item (Join-Path $payload 'cfg') $shadowDir -Recurse -Force

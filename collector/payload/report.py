@@ -251,6 +251,56 @@ def paired(data):
     return [r for r in data if r['status'] == 'ok' and r['lea_turns'] and r['sh_turns']]
 
 
+def arm_comparison():
+    """Lea against the config it replaces, over EVERY priced turn rather than 4.3% of them.
+
+    The paired arm below can only ever see a prompt that opened its session - measured at 4.3% of
+    what this account spends, and the slice with the least conversation to re-read, which is where
+    Lea's main lever barely applies. Giving the stock arm the same conversation would fix the
+    coverage and costs $39.76 at the median turn and $206 at the 90th percentile, against a $4
+    cap. So coverage is bought from the other end instead: the Stop hook prices every turn and
+    records which ruleset produced it, so running some sessions without Lea splits this ledger
+    into two arms for nothing.
+
+    What it is not: a paired comparison. Two sessions are not the same task, and no amount of n
+    makes them one. It is the cheap, wide measurement standing next to the expensive, narrow one;
+    they answer different questions and neither replaces the other.
+    """
+    # The raw rows, not the per-id sums load_lea() returns: this compares turns as they were
+    # priced, one row per Stop, and a config label belongs to a row rather than to an id.
+    path = os.path.join(HERE, 'lea.csv')
+    if not os.path.exists(path):
+        return
+    with io.open(path, encoding='utf-8-sig', newline='') as fh:
+        rows = list(csv.DictReader(fh))
+    by_cfg = {}
+    for r in rows:
+        cfg = (r.get('lea_config') or '').strip() or '(unlabelled)'
+        b = by_cfg.setdefault(cfg, {'cost': [], 'turns': [], 'cr': [], 'days': set()})
+        for key, field in (('cost', 'cost_usd'), ('turns', 'turns'), ('cr', 'cache_read_tokens')):
+            v = num(r, field)
+            if v:
+                b[key].append(v)
+        if r.get('when'):
+            b['days'].add(r['when'][:10])
+    if not by_cfg:
+        return
+
+    print('\nEvery priced turn, by the ruleset that produced it. Not paired - different sessions')
+    print('are different work - but it covers all of the spend rather than the 4.3% that can be')
+    print('paired. Switch arms with: python shadow/arm.py stok')
+    print('  %-18s %5s %5s %12s %9s %11s' % ('ruleset', 'n', 'days', 'total $', 'median $', 'med turns'))
+    for cfg, b in sorted(by_cfg.items(), key=lambda kv: -len(kv[1]['cost'])):
+        if not b['cost']:
+            continue
+        print('  %-18s %5d %5d %12.2f %9.3f %11.0f'
+              % (cfg, len(b['cost']), len(b['days']), sum(b['cost']),
+                 st.median(b['cost']), st.median(b['turns']) if b['turns'] else 0))
+    if len([c for c in by_cfg if c.startswith('lea')]) == len(by_cfg):
+        print('  -> one arm only, so there is nothing to compare yet. Run a session with')
+        print('     `python shadow/arm.py stok`, restart the CLI, and work normally.')
+
+
 def work_matched(r):
     """Did the two arms do a comparable amount of work, so a ratio between them means anything?
 
@@ -371,6 +421,8 @@ def main():
             flag = '' if cfg == 'lea' else '   <- NOT Lea; these rows are excluded from any Lea claim'
             print('  %-12s %-18s %4d Lea turns  $%8.2f   %4d shadow rows%s'
                   % (user, cfg, v['n'], v['usd'], sh_by_user.get(user, 0), flag))
+    arm_comparison()
+
     if later:
         spent = sum(r['sh_cost'] for r in later if r['sh_cost'])
         print('\n%d pair(s) came mid-conversation, so the shadow arm was answering a prompt it'
