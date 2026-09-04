@@ -101,5 +101,16 @@ try {
         # SVG badge uses, so the two cannot say different things at a glance.
         $Colour = if ($Have -ge $Need) { 114 } elseif ($Have -gt 0) { 179 } else { 203 }
         Write-Segment "cift $Have/$Need" $Colour
+
+        # The wide comparison, which is the one a stock session actually fills. Without it a
+        # stock session shows no progress anywhere - the pair counter cannot move from one - and
+        # looks like nothing is being collected, which is what put the second arm here.
+        # Grey until both sides exist, because one side alone compares with nothing.
+        $Lea = [int]$C.lea_rows
+        $Stok = [int]$C.stok_rows
+        if ($Lea -gt 0 -or $Stok -gt 0) {
+            $Both = if ($Lea -gt 0 -and $Stok -gt 0) { 114 } else { 244 }
+            Write-Segment "lea $Lea / stok $Stok" $Both
+        }
     }
 } catch {}

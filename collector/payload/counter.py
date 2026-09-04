@@ -35,16 +35,49 @@ def target():
         return 20
 
 
+def arms():
+    """Priced turns on each side of the wide comparison.
+
+    The paired counter moves once per session at best, and only when a session-opening prompt
+    happens to be pairable - so a stock session shows no progress at all on it and looks like
+    nothing is being collected, which is exactly the complaint that produced the second arm. This
+    is what a stock session actually fills, so it belongs on the statusline beside the other.
+
+    Only an exact `lea` counts as Lea, and only an exact `other*` as stock: a suffixed label
+    (`other-carried-lea`, `lea-no-banner`) means the settings and the transcript disagreed, and a
+    row nobody can vouch for is reported, never counted. See armLabel() in shadow-collect.js.
+    """
+    lea = stok = unsure = 0
+    try:
+        import csv
+        with io.open(os.path.join(HERE, 'lea.csv'), encoding='utf-8-sig', newline='') as fh:
+            for r in csv.DictReader(fh):
+                cfg = (r.get('lea_config') or '').strip()
+                if cfg == 'lea':
+                    lea += 1
+                elif cfg.startswith('other') and '-' not in cfg:
+                    stok += 1
+                elif cfg:
+                    unsure += 1
+    except OSError:
+        pass
+    return lea, stok, unsure
+
+
 def main():
     import report
     data = list(report.rows())
     comparable = report.comparable(data)
     usable = [r for r in comparable if report.work_matched(r)]
+    lea, stok, unsure = arms()
     payload = {
         'usable': len(usable),
         'comparable': len(comparable),
         'needed': target(),
         'rows': len(data),
+        'lea_rows': lea,
+        'stok_rows': stok,
+        'unsure_rows': unsure,
         'generated': datetime.now().strftime('%Y-%m-%d %H:%M'),
     }
     # Written whole, then moved into place: the statusline reads this file constantly, and a
