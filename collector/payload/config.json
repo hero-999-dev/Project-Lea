@@ -37,11 +37,19 @@
       "*.iso",
       "*.png",
       "*.jpg",
-      "*.pdf"
+      "*.pdf",
+      "SIFRELER.md",
+      "*.pem",
+      "*.key",
+      "id_rsa*",
+      ".env",
+      ".env.*",
+      "auth.json"
     ],
     "_exclude_comment": ".claude, .ssh, .aws, .gnupg and AppData are never task material and would otherwise be handed to an agent running with bypassPermissions.",
     "max_scan_seconds": 180,
-    "max_probe_seconds": 20
+    "max_probe_seconds": 20,
+    "_exclude_secrets_comment": "SIFRELER.md and the credential shapes below are excluded by name, not by trust: the runner copies whole trees, one of them is the workspace root where the password file lives, and the copy is handed to a headless agent running with bypassPermissions. A file that is never copied cannot be read by it or land in a run directory."
   },
   "project_roots": [],
   "_project_roots_comment": "Where the shadow arm works when the session's own directory cannot be copied. Empty means the old behaviour: such a prompt is skipped. Fill it with the directories you actually work in - install.ps1 -ProjectRoot C:\\a,C:\\b does it for you (comma-separated, not a repeated flag). Why it matters: only the FIRST prompt of a session can be paired at all, so a session opened in a directory that will not copy contributes nothing, and that is one whole session lost rather than one prompt. Which directories will not copy is not obvious from their size, because files over max_file_mb are skipped before anything is counted - measured on the machine this came from, a project was 885 files / 56 MB and its whole parent directory 1,649 files / 399 MB, both fitting, while a home directory hit the 600 MB cap at 1,473 files. So a parent directory is usually fine; a home directory usually is not. The first entry that exists and fits wins, and the probe IS the copy routine, so it can never approve a tree the copy would then refuse. NOTHING HERE IS SILENT: the row records tree_root and report.py compares it against Lea's own working directory, so a pair whose two arms started from different trees is reported apart from one whose arms did not.",
