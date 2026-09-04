@@ -84,13 +84,24 @@ function sessionCost(transcriptPath) {
   // the whole difference between the two arms. Lea answers inside a session and pays to re-read
   // it on every turn; the shadow arm answers the same prompt from an empty context. Recording
   // both sides is what lets the report say which numbers are comparable and which are not.
-  let total = 0, out = 0, turns = 0, model = "", cr = 0, inp = 0;
+  let total = 0, out = 0, turns = 0, model = "", cr = 0, inp = 0, sawLea = false;
   let text;
   try { text = fs.readFileSync(transcriptPath, "utf8"); } catch { return null; }
   for (const line of text.split("\n")) {
     if (!line.trim()) continue;
     let rec;
     try { rec = JSON.parse(line); } catch { continue; }
+
+    // Did Lea's banner actually reach this conversation? settings.json says what the NEXT
+    // session will run; the transcript says what this one is carrying, and after an arm switch
+    // those two disagree until the session is restarted. Checked structurally - a SessionStart
+    // hook attachment whose stdout is the banner - and not by searching the text, because in
+    // this project the words "LEA ACTIVE" turn up in the conversation itself all the time.
+    const att = rec.attachment;
+    if (att && att.hookEvent === "SessionStart" && /^LEA ACTIVE\b/.test(att.stdout || "")) {
+      sawLea = true;
+    }
+
     const msg = rec.message;
     if (!msg || !msg.usage) continue;
     const u = msg.usage, p = priceOf(msg.model);
@@ -104,7 +115,25 @@ function sessionCost(transcriptPath) {
     inp += (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0);
     turns += 1;
   }
-  return { total, out, turns, model, cr, inp };
+  return { total, out, turns, model, cr, inp, sawLea };
+}
+
+
+// What the row may honestly call itself, given what settings.json says and what the conversation
+// is actually carrying.
+//
+// Written the day it happened for real: the arm was switched to stock, the terminal was closed,
+// and the Claude session was resumed rather than restarted. settings.json said `other` while the
+// transcript still held 21 Lea banners, so every row from then on would have been filed as clean
+// stock evidence produced by a model reading Lea's rules. That is the silent substitution
+// PRENSIPLER rule 7 forbids, and it would have poisoned the one comparison the arm switch exists
+// to make. A suffixed label keeps the row - it is real spend and belongs in the totals - while
+// keeping it out of every claim, because report.py and savings.py count only an exact `lea`.
+function armLabel(cfg, sawLea) {
+  const claimsLea = cfg.startsWith("lea");
+  if (claimsLea && !sawLea) return cfg + "-no-banner";      // configured, never delivered
+  if (!claimsLea && sawLea) return cfg + "-carried-lea";    // switched off, still in context
+  return cfg;
 }
 
 // `user` and `host` are not bookkeeping: with two installs writing one ledger, a row that does
@@ -185,7 +214,7 @@ function main(input) {
     now.model, cost.toFixed(6), turns, outTok, pointer.cwd,
     inTok, crTok, turnsBefore,
     process.env.USERNAME || process.env.USER || "",
-    process.env.COMPUTERNAME || "", liveConfig()]) + "\n");
+    process.env.COMPUTERNAME || "", armLabel(liveConfig(), now.sawLea)]) + "\n");
   fs.writeFileSync(path.join(runDir, "lea.recorded"), "", "utf8");
   prune();
   refreshCounter();
@@ -333,4 +362,4 @@ if (require.main === module) {
   setTimeout(() => process.exit(0), 8000).unref();
 }
 
-module.exports = { leaPatch, prune, sessionCost, liveConfig, csvRow, refreshCounter };
+module.exports = { leaPatch, prune, sessionCost, liveConfig, armLabel, csvRow, refreshCounter };

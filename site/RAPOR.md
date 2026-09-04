@@ -4,7 +4,7 @@
 
 Gölge kolunun **oran taşıyabilen** çift sayısı, hedef 20. Bu sayı hedefe ulaşınca manşet izdüşüm olmaktan çıkıp doğrudan ölçüme dayanabilir — dolana kadar `lea.js` değişmiyor.
 
-Bütün ölçümler tek sayfada. **2026-09-04 12:12** tarihinde `savings.py` tarafından üretildi —
+Bütün ölçümler tek sayfada. **2026-09-04 12:20** tarihinde `savings.py` tarafından üretildi —
 elle düzenlenmiyor.
 
 > Bu sayfa GitHub'da açılır çünkü Markdown. Yanındaki `.html` raporlar açılmaz: GitHub HTML'i
@@ -15,10 +15,10 @@ elle düzenlenmiyor.
 
 | | |
 |---|---|
-| **Tasarruf** | **$361 · −26%** |
-| Ölçülen gerçek harcama | $1,005.51 · 147 istem · 3,696 tur |
-| Aynı iş `full` config'iyle | $1,367 |
-| Üst sınır (en iyi ölçülen tur) | $1,063 · −51% |
+| **Tasarruf** | **$362 · −26%** |
+| Ölçülen gerçek harcama | $1,007.74 · 148 istem · 3,705 tur |
+| Aynı iş `full` config'iyle | $1,370 |
+| Üst sınır (en iyi ölçülen tur) | $1,065 · −51% |
 | Bunu kanıtlamanın maliyeti | $10.91 · 11 gölge koşusu |
 
 Manşet **alt sınır**: dört ölçülmüş turun Lea'ya en az kazandıranını kullanıyor
@@ -38,9 +38,9 @@ değil. Onu ölçecek olan gölge kolu.
 
 | kalem | token | pay |
 |---|---|---|
-| cache okuma (konuşmayı yeniden okumak) | 1,403,013,782 | %70 |
-| girdi + cache yazma | 18,810,884 | %19 |
-| çıktı | 4,755,184 | %12 |
+| cache okuma (konuşmayı yeniden okumak) | 1,407,083,698 | %70 |
+| girdi + cache yazma | 18,816,228 | %19 |
+| çıktı | 4,760,804 | %12 |
 
 Paranın üçte ikisi konuşmayı yeniden okumaya gidiyor, çıktıya değil. Lea'nın 120 kelimelik
 bütçesinin doğrudan kestiği kalem en küçüğü — asıl kaldıraç **tur sayısı**.
@@ -49,14 +49,14 @@ bütçesinin doğrudan kestiği kalem en küçüğü — asıl kaldıraç **tur 
 
 | kurulum | istem | USD |
 |---|---|---|
-| `A` | 145 | $999.57 |
+| `A` | 146 | $1,001.81 |
 | `B` | 2 | $5.94 |
 
 ## Gölge kolu
 
 | | |
 |---|---|
-| kayıtlı istem | 177 |
+| kayıtlı istem | 179 |
 | koşan | 11 |
 | harcanan | $10.91 |
 | karşılaştırılabilir çift | 3 |
