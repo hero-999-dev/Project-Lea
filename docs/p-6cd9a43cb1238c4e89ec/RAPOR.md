@@ -4,7 +4,7 @@
 
 Gölge kolunun **oran taşıyabilen** çift sayısı, hedef 20. Bu sayı hedefe ulaşınca manşet izdüşüm olmaktan çıkıp doğrudan ölçüme dayanabilir — dolana kadar `lea.js` değişmiyor.
 
-Bütün ölçümler tek sayfada. **2026-09-04 18:38** tarihinde `savings.py` tarafından üretildi —
+Bütün ölçümler tek sayfada. **2026-09-04 19:37** tarihinde `savings.py` tarafından üretildi —
 elle düzenlenmiyor.
 
 > Bu sayfa GitHub'da açılır çünkü Markdown. Yanındaki `.html` raporlar açılmaz: GitHub HTML'i
@@ -16,7 +16,7 @@ elle düzenlenmiyor.
 | | |
 |---|---|
 | **Tasarruf** | **$362 · −26%** |
-| Ölçülen gerçek harcama | $1,007.74 · 148 istem · 3,705 tur |
+| Ölçülen kullanım (API fiyatıyla değerlenmiş) | $1,007.74 · 148 istem · 3,705 tur |
 | Aynı iş `full` config'iyle | $1,370 |
 | Üst sınır (en iyi ölçülen tur) | $1,065 · −51% |
 | Bunu kanıtlamanın maliyeti | $11.29 · 12 gölge koşusu |
@@ -56,9 +56,9 @@ bütçesinin doğrudan kestiği kalem en küçüğü — asıl kaldıraç **tur 
 
 | | |
 |---|---|
-| kayıtlı istem | 202 |
+| kayıtlı istem | 203 |
 | koşan | 12 |
-| harcanan | $11.29 |
+| kullanılan kota (API fiyatıyla) | $11.29 |
 | karşılaştırılabilir çift | 4 |
 | **oran taşıyabilen çift** | **0 / 20** |
 

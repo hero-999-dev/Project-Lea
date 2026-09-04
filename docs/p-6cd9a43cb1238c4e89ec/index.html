@@ -77,7 +77,7 @@
 izdüşüm olmaktan çıkıp doğrudan ölçüme dayanabilir.">
   </div>
   <p class="savings-basis">
-    Ölçülen gerçek harcama <b>$1,007.74</b>
+    Ölçülen kullanım, API fiyatlarıyla değerlenmiş <b>$1,007.74</b>
     (148 istem, 3,705 tur, 2026-08-30 &rarr; 2026-09-04).
     Aynı iş Lea&rsquo;dan önce çalışan <code>full</code> config&rsquo;iyle
     <b>$1,370</b> tutardı.
@@ -86,8 +86,12 @@ izdüşüm olmaktan çıkıp doğrudan ölçüme dayanabilir.">
   </p>
   <p class="savings-fine">
     Alt sınır: dört ölçülmüş turun Lea&rsquo;ya en az kazandıranı (Kolay bug fix, n=3/3).
-    Ölçülmüş oran &times; ölçülmüş harcama &mdash; doğrudan ölçülmüş tasarruf değil.
-    Güncelleme 2026-09-04 18:38 &middot; <code>python savings.py</code>
+    Ölçülmüş oran &times; ölçülmüş kullanım &mdash; doğrudan ölçülmüş tasarruf değil.
+    <b>Bu rakamlar fatura değil:</b> CLI bir Claude Pro aboneliğiyle koşuyor, hiçbir API anahtarı yok,
+    dolayısıyla hiçbir hesaptan para çıkmıyor. Tükenen şey kota. Dolar, iki config&rsquo;i
+    karşılaştırmanın ortak birimi olarak duruyor: token sayıları, 205 ölçüm satırından
+    türetilmiş API fiyat vektörleriyle değerlendi.
+    Güncelleme 2026-09-04 19:37 &middot; <code>python savings.py</code>
   </p>
 </section>
 <!-- SAVINGS:END -->
