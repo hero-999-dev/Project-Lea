@@ -119,8 +119,29 @@ o yolda mı — üçünü sırayla kontrol et.
 
 ---
 
-## Kurulmayan şeyler ve nedeni
+## Buraya ne konur, ne konmaz
 
+Gölge kolu bir defter yazıyor, tek komut onu paketliyor, raporlar da yayınlanıyor — o yüzden
+eklediğin her şeye şunu sor: *bu dosya yarın tanımadığım birinin elinde olsa ne olur?* Üç yere
+gidebilir ve üçünün de geri dönüşü yok: **public depo** (çatal ve klonlar silmeden sonra da
+yaşar), **yayınlanan sayfa** (önbellek ve arşivler de öyle), ve **taşınabilir disk** (kaybolacağını
+varsay).
+
+Bu yüzden, istisnasız:
+
+- **Parola, token, API anahtarı, kurtarma kodu** üçünden hiçbirine yazılmaz. Ne config'e, ne
+  yoruma, ne "geçici olarak". `export.ps1` diff'leri varsayılan olarak dışarıda bırakıyor, sebebi
+  aynı: onlar senin kaynak kodun.
+- **Hesap adı içeren mutlak yol yok, makine adı yok.** Defter `user` ve `host` tutuyor çünkü tek
+  dosyaya yazan iki kurulum başka türlü ayırt edilemez; `export.ps1` ise makine adını dışarı
+  çıkmadan önce tek yönlü bir özete çeviriyor. Yayınlanan sayfalar `shadow/config.json`'daki
+  hesap etiketlerini (`A`, `B`) kullanıyor, gerçek adı asla.
+- **Şifre kapısı gizlilik değildir.** Raporları bir kapının arkasına koyarsan bu, bir URL'nin
+  elden ele yayılmasını engeller; depoyu okuyan birini engellemez. Okunması sakıncalı hiçbir şey
+  oraya konmaz.
+- **Emin değilsen koyma.** Üçünün de geri alması yok.
+
+## Kurulmayan şeyler ve nedeni
 Bu rehber `caveman`, `ponytail` ve `superpowers` plugin'lerini **kurmuyor**. Ölçüm, üçünün birlikte
 yaptığı işi Lea'nın çoğu turda daha ucuza yaptığını söylüyor: üç plugin yaklaşık 6.000 token'lık
 kural seti yüklüyor ve bu metin araçlı bir görevin 6–9 turunun her birinde yeniden okunuyor;

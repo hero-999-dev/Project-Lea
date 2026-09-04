@@ -119,8 +119,29 @@ and that the file is actually there — in that order.
 
 ---
 
-## What this does not install, and why
+## What not to put where this ends up
 
+The shadow arm writes a ledger, one command packages it, and the reports are published — so ask
+of anything you add: *what if this file were in a stranger's hands tomorrow?* Three places it can
+end up, and none of them can be taken back: a **public repository** (forks and clones outlive a
+delete), a **published page** (caches and archives outlive it too), and a **removable drive**
+(assume it will be lost).
+
+So, without exception:
+
+- **No passwords, tokens, API keys or recovery codes** in any of the three. Not in a config, not
+  in a comment, not "temporarily". `export.ps1` leaves your diffs out by default for the same
+  reason — they are your source code.
+- **No absolute paths carrying an account name, no machine names.** The ledger records `user` and
+  `host` because two installs sharing one file cannot otherwise be told apart, and `export.ps1`
+  replaces the machine name with a one-way digest before anything leaves. Published pages use the
+  account labels from `shadow/config.json` (`A`, `B`) and never a real name.
+- **A password gate is not secrecy.** If you put the reports behind one, it stops a URL from being
+  casually shared; it does not stop anyone who reads the repository. Nothing that matters if it is
+  read belongs behind it.
+- **When in doubt, leave it out.** There is no undo for any of the three.
+
+## What this does not install, and why
 This guide installs no plugins. The measurements say Lea does what `caveman`, `ponytail` and
 `superpowers` do together, more cheaply on most rounds: those three inject roughly 6,000 tokens of
 rules that are re-read on every one of a tool task's 6–9 turns. Lea's rule set is ~180 tokens.
