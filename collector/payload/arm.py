@@ -122,9 +122,15 @@ def main(argv):
     now = state(cfg)
 
     if not want:
+        other = 'stok' if now.startswith('lea') else 'lea'
         print('su an: %s' % now)
-        print('sonraki oturum bu kolla acilir. Degistirmek icin: python shadow/arm.py '
-              '%s' % ('stok' if now.startswith('lea') else 'lea'))
+        print('sonraki oturum bu kolla acilir.\n')
+        # The command as it can actually be pasted, from wherever the reader happens to be. A
+        # relative `python shadow/arm.py` only works from the project root, and the one place
+        # this is read is a session that opened somewhere else.
+        print('degistirmek icin, hangi dizinde olursan ol:')
+        print('  python "%s" %s' % (os.path.abspath(__file__), other))
+        print('\nsonra CLI\'i yeniden baslat - hook\'lar oturum acilisinda okunuyor.')
         return 0
 
     if want in ('--flip', 'flip'):
