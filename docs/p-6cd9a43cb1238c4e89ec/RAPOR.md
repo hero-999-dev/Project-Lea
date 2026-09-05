@@ -4,7 +4,7 @@
 
 Gölge kolunun **oran taşıyabilen** çift sayısı, hedef 20. Bu sayı hedefe ulaşınca manşet izdüşüm olmaktan çıkıp doğrudan ölçüme dayanabilir — dolana kadar `lea.js` değişmiyor.
 
-Bütün ölçümler tek sayfada. **2026-09-05 06:53** tarihinde `savings.py` tarafından üretildi —
+Bütün ölçümler tek sayfada. **2026-09-05 10:56** tarihinde `savings.py` tarafından üretildi —
 elle düzenlenmiyor.
 
 > Bu sayfa GitHub'da açılır çünkü Markdown. Yanındaki `.html` raporlar açılmaz: GitHub HTML'i
@@ -56,7 +56,7 @@ bütçesinin doğrudan kestiği kalem en küçüğü — asıl kaldıraç **tur 
 
 | | |
 |---|---|
-| kayıtlı istem | 225 |
+| kayıtlı istem | 230 |
 | koşan | 12 |
 | kullanılan kota (API fiyatıyla) | $11.29 |
 | karşılaştırılabilir çift | 4 |
@@ -79,6 +79,20 @@ Aynı istem, iki kol, aynı ağaçtan.
 
 **Bu çiftlerden 4 tanesi oran taşıyamaz.** Son sütun sebebi: bir kol iş yaptı, diğeri yapmadı — ya da sayı hiç kaydedilmedi. Az iş yapmak her zaman ucuzdur, o yüzden bu satırlar gösteriliyor ama ortalamaya girmiyor. Gölge kolunun 2026-09-03'e kadarki bütün çiftlerinde Lea tarafının diff'i kayıp: `git diff` proje kökünü tararken `shadow/runs/` içindeki eski kopyalara giriyor, bir yol Windows sınırını geçiyor ve komut hiçbir şey yazmadan çıkıyordu. Düzeltildi; bundan sonraki çiftlerde bu sütun dolu gelecek.
 
+
+## v9 denendi, geçemedi
+
+| kol | n=40 | oran |
+|---|---|---|
+| `lea-v8` aynı gün kontrolü | 32/40 | 0.80 |
+| `lea-v9c` aday | 36/40 | 0.90 |
+
+İki yanlı Fisher **p = 0.3482**; bu kontrol için baraj **39/40** idi ve tur koşmadan *önce* yazılmıştı. **v9 yok** — `lea.js` değişmedi. 92 hücre, $9.23, 0 hata.
+
+Turun asıl bulgusu aday değil: v9 fikrini doğuran **13/20** bir oran değil, düşük bir çekilişti. Aynı bayt-aynı config üç blokta 13/20, 15/20, 17/20 aldı — havuzda **45/60 = 0.75**. Aday *tarihsel* 13/20'ye karşı ölçülseydi p = 0.0315 ile "kazandı" diye okunurdu; aynı gün koşan kontrole karşı p = 0.3482. Aradaki fark kolun değil, günün farkıydı.
+
+Maliyet oranı: hard 1.056, düzyazı 1.041 (kol başına n=6, yalnız ~%35 üstü bir bozulmayı görebilir).
+
 ## Tam raporlar
 
 Aşağıdakiler HTML; GitHub'da kaynak olarak görünürler. `pwsh -File site/ac.ps1` hepsini çeker
@@ -93,6 +107,7 @@ ve tarayıcıda açar.
 | [`rapor-opus-proje-turu.html`](rapor-opus-proje-turu.html) | gerçek depo turu, Opus |
 | [`rapor-tasarruf.html`](rapor-tasarruf.html) | tasarruf hesabının tamamı |
 | [`rapor-golge.html`](rapor-golge.html) | gölge kolunun durumu ve verimi ne kilitliyor |
+| [`rapor-v9.html`](rapor-v9.html) | v9 turu: aday, aynı gün kontrolü, ve neden geçemedi |
 | [`savings.json`](savings.json) | manşetin arkasındaki her ara değer |
 
 Sayfalarda kullanıcı adı, makine adı ve hesap adı içeren mutlak yol **yok**; kurulumlar
