@@ -34,9 +34,11 @@ Three cases, and they need different work:
 Read these two first, in this order. They are the handover, and they are current:
 
 1. **`NEXT.md`** - what changed last round, how each piece was verified, and the ordered backlog.
-2. **`PRENSIPLER.md`** - nine rules, each one written from a mistake that actually happened.
-   Rule 1 (a change is not finished when the code is) and rule 9 (everything that leaves this
-   machine is assumed lost) are the two that get broken most.
+2. **`PRENSIPLER.md`** - ten rules, each one written from a mistake that actually happened.
+   Rule 1 (a change is not finished when the code is) and rule 10 (everything that leaves this
+   machine is assumed lost) are the two that get broken most. Rule 9 is the newest and the
+   most expensive: a difference seen in ONE block is a hypothesis, not evidence - the whole v9
+   programme grew out of reading a single 13/20 as v8's rate, when 60 samples put it at 0.75.
 
 Then look at where the measurement stands:
 
