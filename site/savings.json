@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-04 23:28",
+  "generated": "2026-09-05 03:27",
   "baseline": "full",
   "model": "opus",
   "lea": {
@@ -25,7 +25,7 @@
         "usd": 5.935101
       }
     },
-    "excluded_rows": 33,
+    "excluded_rows": 35,
     "excluded_configs": [
       "other",
       "other-carried-lea"
@@ -33,7 +33,7 @@
     "pooled": {},
     "pooled_unknown": 0
   },
-  "matrix_rows": 294,
+  "matrix_rows": 334,
   "rounds": [
     {
       "round": "prose",
@@ -93,7 +93,7 @@
     "n": "5/3"
   },
   "shadow": {
-    "rows": 214,
+    "rows": 220,
     "ok": 12,
     "truncated": 0,
     "deferred": 1,
@@ -102,13 +102,13 @@
       "home directory": 10,
       "shorter than min_prompt_chars": 22,
       "in flight": 1,
-      "mid-conversation": 164,
+      "mid-conversation": 170,
       "skip pattern": 3,
       "other": 1
     },
     "comparable": 4,
     "usable": 0,
-    "lea_rows": 181,
+    "lea_rows": 183,
     "home_cwd": 121
   }
 }
